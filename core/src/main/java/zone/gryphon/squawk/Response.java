@@ -1,4 +1,12 @@
 package zone.gryphon.squawk;
 
-public interface Response<T> {
+import lombok.Builder;
+import lombok.Value;
+
+@Value
+@Builder(toBuilder = true)
+public class Response<T> {
+
+    private final T entity;
+
 }
