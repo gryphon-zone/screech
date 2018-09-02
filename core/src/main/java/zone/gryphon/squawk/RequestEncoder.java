@@ -1,9 +1,10 @@
 package zone.gryphon.squawk;
 
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
 public interface RequestEncoder {
 
-    <T> CompletableFuture<OutputStream> encode(T entity);
+    <T> CompletableFuture<ByteBuffer> encode(T entity);
 }

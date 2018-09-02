@@ -1,26 +1,32 @@
 package zone.gryphon.squawk;
 
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 
 @Slf4j
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class AsyncInvocationHandler<T, R> implements InvocationHandler {
 
-    public static <T, R> AsyncInvocationHandler<T, R> from(Method method) {
-        return new AsyncInvocationHandler<>(method);
+    public static <T, R> AsyncInvocationHandler<T, R> from(
+            Method method,
+            RequestEncoder requestEncoder,
+            List<RequestInterceptor> requestInterceptors,
+            ResponseDecoder responseDecoder,
+            ErrorDecoder errorDecoder,
+            Client client
+            ) {
+        return new AsyncInvocationHandler<>(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client);
     }
 
     private final Class<T> returnType;
@@ -28,6 +34,10 @@ public class AsyncInvocationHandler<T, R> implements InvocationHandler {
     private final String httpMethod;
 
     private final String path;
+
+    private final Function<Object[], Map<String, Object>> function = (objects) -> Collections.emptyMap();
+
+    // passed in //
 
     private final RequestEncoder encoder = null;
 
@@ -37,11 +47,15 @@ public class AsyncInvocationHandler<T, R> implements InvocationHandler {
 
     private final ErrorDecoder errorDecoder = null;
 
-    private final Function<Object[], Map<String, Object>> function = (objects) -> Collections.emptyMap();
-
     private final Client client = null;
 
-    private AsyncInvocationHandler(Method method) {
+    private AsyncInvocationHandler(
+            Method method,
+            RequestEncoder encoder,
+            List<RequestInterceptor> requestInterceptors,
+            ResponseDecoder responseDecoder,
+            ErrorDecoder errorDecoder,
+            Client client) {
         RequestLine requestLine = method.getAnnotation(RequestLine.class);
 
         if (requestLine == null) {
@@ -65,7 +79,7 @@ public class AsyncInvocationHandler<T, R> implements InvocationHandler {
 
         CompletableFuture<R> responseUnwrapped = response.thenApply(Response::getEntity);
 
-        if (returnType.isAssignableFrom(CompletableFuture.class) ||returnType.isAssignableFrom(CompletionStage.class)) {
+        if (returnType.isAssignableFrom(CompletableFuture.class) || returnType.isAssignableFrom(CompletionStage.class)) {
             log.info("yoasync: {}, {}", responseUnwrapped, returnType);
             return (T) responseUnwrapped;
         } else {
@@ -87,7 +101,7 @@ public class AsyncInvocationHandler<T, R> implements InvocationHandler {
     private <X, Y, Z> CompletableFuture<Response<Z>> setUpInterceptors(int index, Request<X> request) {
 
         if (index >= requestInterceptors.size()) {
-            return setUpclientCall(request);
+            return setUpClientCall(request);
         }
 
         @SuppressWarnings("unchecked")
@@ -96,7 +110,18 @@ public class AsyncInvocationHandler<T, R> implements InvocationHandler {
         return requestInterceptor.intercept(request, request1 -> setUpInterceptors(index + 1, request1));
     }
 
-    private <R> CompletableFuture<Response<R>> setUpclientCall(Request requestFuture) {
-        return CompletableFuture.completedFuture((Response<R>) Response.builder().entity("asdf").build());
+    private <X> CompletableFuture<Response<X>> setUpClientCall(Request request) {
+        return encoder.encode(request.getEntity())
+                .thenApply(buffer -> convert(buffer, request))
+                .thenCompose(client::request)
+                .thenCompose(this::decode);
+    }
+
+    private SerializedRequest convert(ByteBuffer buffer, Request<?> request) {
+        return null;
+    }
+
+    private <X> CompletableFuture<Response<X>> decode(SerializedResponse response) {
+        return null;
     }
 }
