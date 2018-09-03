@@ -6,21 +6,25 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.URI;
-import java.net.URL;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
 @Slf4j
-public class InstanceFactory {
+public class InstanceBuilder {
+
+    private RequestEncoder requestEncoder = new RequestEncoder.StringRequestEncoder();
+
+    private List<RequestInterceptor<?, ?, ?>> requestInterceptors = new ArrayList<>();
+
+    private ResponseDecoder responseDecoder = new ResponseDecoder.StringResponseDecoder();
+
+    private ErrorDecoder errorDecoder = new ErrorDecoder.DefaultErrorDecoder();
 
     private Client client;
 
-    public InstanceFactory(@NonNull Client client) {
+    public InstanceBuilder(@NonNull Client client) {
         this.client = client;
     }
 
@@ -34,7 +38,7 @@ public class InstanceFactory {
                 continue;
             }
 
-            map.put(method, AsyncInvocationHandler.from(method));
+            map.put(method, AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target));
         }
 
         InvocationHandler handler = (proxy, method, args) -> map.get(method).invoke(proxy, method, args);

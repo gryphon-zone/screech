@@ -6,6 +6,7 @@ import lombok.Value;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 @Value
@@ -30,11 +31,11 @@ public class SerializedRequest {
     /**
      * Headers for the request
      */
-    private final Map<String, Collection<String>> headers;
+    private final List<HttpParam> headers;
 
     /**
      * Query parameters for the request
      */
-    private final Map<String, Collection<String>> queryParams;
+    private final List<HttpParam> queryParams;
 
 }

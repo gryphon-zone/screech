@@ -3,35 +3,26 @@ package zone.gryphon.squawk;
 import lombok.NonNull;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 
 public class HardCodedTarget implements Target {
 
-    private static URI convert(URL target) {
-        try {
-            return target.toURI();
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Unable to parse " + target + " as a valid URI", e);
-        }
-    }
+    private final String target;
 
-    private final URI target;
-
-    public HardCodedTarget(URL target) {
-        this(convert(target));
+    public HardCodedTarget(@NonNull URL target) {
+        this(target.toString());
     }
 
     public HardCodedTarget(String target) {
-        this(URI.create(target));
-    }
-
-    public HardCodedTarget(@NonNull URI target) {
         this.target = target;
     }
 
+    public HardCodedTarget(@NonNull URI target) {
+        this(target.toString());
+    }
+
     @Override
-    public URI getTarget() {
+    public String getTarget() {
         return target;
     }
 }
