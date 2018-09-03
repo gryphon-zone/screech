@@ -1,6 +1,7 @@
 package zone.gryphon.squawk;
 
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,19 +41,24 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
         return new AsyncInvocationHandler<>(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
     }
 
+    @Getter(AccessLevel.PROTECTED)
     private final Class<?> returnType;
 
+    @Getter(AccessLevel.PROTECTED)
     private final String httpMethod;
 
+    @Getter(AccessLevel.PROTECTED)
     private final String path;
+
+    @Getter(AccessLevel.PROTECTED)
+    private final List<HttpParam> queryParams;
+
+    @Getter(AccessLevel.PROTECTED)
+    private final List<HttpParam> headerParams;
 
     private final Function<Object[], Map<String, String>> parameterFunction;
 
     private final Function<Object[], Object> bodyFunction;
-
-    private final List<HttpParam> queryParams;
-
-    private final List<HttpParam> headerParams;
 
     private final String methodKey;
 
@@ -83,7 +89,7 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
 
         this.encoder = encoder;
 
-        this.requestInterceptors = requestInterceptors;
+        this.requestInterceptors = Collections.unmodifiableList(new ArrayList<>(requestInterceptors));
 
         this.responseDecoder = responseDecoder;
 
@@ -108,9 +114,9 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
 
         this.path = parsePath(parts);
 
-        this.queryParams = parseQueryParams(parts);
+        this.queryParams = Collections.unmodifiableList(parseQueryParams(parts));
 
-        this.headerParams = parseHeaderParams(method);
+        this.headerParams = Collections.unmodifiableList(parseHeaderParams(method));
 
         this.parameterFunction = setupParameterExtractor(method);
 
@@ -166,7 +172,7 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
                     .collect(Collectors.toList());
 
             if (parts.size() != 2) {
-                throw new IllegalArgumentException(String.format("Failed to parse valid header from %s on method %s", methodHeader.value(), methodKey));
+                throw new IllegalArgumentException(String.format("Failed to parse valid header from value \"%s\" on method %s", methodHeader.value(), methodKey));
             }
 
             headersDefinedAtMethodLevel.add(parts.get(0).toLowerCase());
@@ -182,7 +188,7 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
                     .collect(Collectors.toList());
 
             if (parts.size() != 2) {
-                throw new IllegalArgumentException(String.format("Failed to parse valid header from %s on method %s", methodHeader.value(), methodKey));
+                throw new IllegalArgumentException(String.format("Failed to parse valid header from value \"%s\" on method %s", methodHeader.value(), methodKey));
             }
 
             // ignore headers defined at method level
@@ -201,7 +207,11 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
 
     private String parseHttpMethod(String[] parts) {
 
-        if (parts.length == 0) {
+        if (parts.length == 0 || parts[0].isEmpty()) {
+            throw new IllegalArgumentException(String.format("Error building client for %s, no HTTP method defined", methodKey));
+        }
+
+        if (parts[0].contains("/") || parts[0].contains("?") || parts[0].contains("=") || parts[0].contains("&")) {
             throw new IllegalArgumentException(String.format("Error building client for %s, no HTTP method defined", methodKey));
         }
 
@@ -240,23 +250,33 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
         String queryString = pathAndQueryParams.substring(index + 1);
 
         while ((index = queryString.indexOf('&')) != -1) {
-            output.add(parseSingleParam(queryString.substring(0, index)));
+            parseSingleParam(queryString.substring(0, index)).ifPresent(output::add);
             queryString = queryString.substring(index + 1);
         }
 
-        output.add(parseSingleParam(queryString));
+        parseSingleParam(queryString).ifPresent(output::add);
 
         return output;
     }
 
-    private HttpParam parseSingleParam(String string) {
+    private Optional<HttpParam> parseSingleParam(String string) {
         int idx;
 
         if ((idx = string.indexOf('=')) != -1) {
-            return new HttpParam(string.substring(0, idx), string.substring(idx + 1));
+            String key = string.substring(0, idx);
+
+            if (!key.isEmpty()) {
+                return Optional.of(new HttpParam(key, string.substring(idx + 1)));
+            }
+
+            return Optional.empty();
         }
 
-        return new HttpParam(string, null);
+        if (!string.isEmpty()) {
+            return Optional.of(new HttpParam(string, null));
+        }
+
+        return Optional.empty();
     }
 
     private Function<Object[], Map<String, String>> setupParameterExtractor(Method method) {
