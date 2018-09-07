@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

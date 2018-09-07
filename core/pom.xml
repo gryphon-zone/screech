@@ -6,17 +6,17 @@
 
     <parent>
         <groupId>zone.gryphon</groupId>
-        <artifactId>squawk</artifactId>
+        <artifactId>screech</artifactId>
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>squawk-core</artifactId>
+    <artifactId>screech-core</artifactId>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>zone.gryphon</groupId>
-                <artifactId>squawk-build-bom</artifactId>
+                <artifactId>screech-build-bom</artifactId>
                 <version>0.1-SNAPSHOT</version>
                 <type>pom</type>
                 <scope>import</scope>

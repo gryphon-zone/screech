@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import lombok.experimental.UtilityClass;
 
@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.concurrent.ExecutionException;
 
 @UtilityClass
 public final class Util {
@@ -52,7 +53,18 @@ public final class Util {
         builder.append(")");
 
         return builder.toString();
+    }
 
+    public Throwable unwrap(Throwable e) {
+        if (e == null) {
+            return null;
+        }
+
+        if (e instanceof ExecutionException && e.getCause() != null) {
+            return e.getCause();
+        }
+
+        return e;
     }
 
 }

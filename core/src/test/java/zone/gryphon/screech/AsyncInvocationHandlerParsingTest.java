@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 
 import org.junit.Test;
@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 import static org.mockito.Mockito.mock;
 
+@SuppressWarnings("unchecked")
 public class AsyncInvocationHandlerParsingTest {
 
     private RequestEncoder requestEncoder = mock(RequestEncoder.class);
@@ -26,12 +27,13 @@ public class AsyncInvocationHandlerParsingTest {
 
     public interface NoAnnotation {
 
+        @SuppressWarnings("unused")
         String foo();
 
     }
 
     @Test
-    public void testNoAnnotation() throws Exception {
+    public void testNoAnnotation() {
 
         try {
             AsyncInvocationHandler.from(NoAnnotation.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
@@ -43,13 +45,14 @@ public class AsyncInvocationHandlerParsingTest {
 
     public interface NoRequestLine {
 
+        @SuppressWarnings("unused")
         @RequestLine("")
         String foo();
 
     }
 
     @Test
-    public void testNoRequestLine() throws Exception {
+    public void testNoRequestLine() {
 
         try {
             AsyncInvocationHandler.from(NoRequestLine.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
@@ -61,12 +64,13 @@ public class AsyncInvocationHandlerParsingTest {
 
     public interface NoPath {
 
+        @SuppressWarnings("unused")
         @RequestLine("GET")
         String foo();
     }
 
     @Test
-    public void testNoPath() throws Exception {
+    public void testNoPath() {
 
         try {
             AsyncInvocationHandler.from(NoPath.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
@@ -78,12 +82,13 @@ public class AsyncInvocationHandlerParsingTest {
 
     public interface NoVerb {
 
+        @SuppressWarnings("unused")
         @RequestLine("/target")
         String foo();
     }
 
     @Test
-    public void testNoVerb() throws Exception {
+    public void testNoVerb() {
 
         try {
             AsyncInvocationHandler.from(NoVerb.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
@@ -95,13 +100,14 @@ public class AsyncInvocationHandlerParsingTest {
 
     public interface IllegalMethodHeader {
 
+        @SuppressWarnings("unused")
         @Header("invalid header")
         @RequestLine("GET /target")
         String foo();
     }
 
     @Test
-    public void testIllegalMethodHeader() throws Exception {
+    public void testIllegalMethodHeader() {
 
         try {
             AsyncInvocationHandler.from(IllegalMethodHeader.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
@@ -114,18 +120,71 @@ public class AsyncInvocationHandlerParsingTest {
     @Header("invalid header")
     public interface IllegalClassHeader {
 
+        @SuppressWarnings("unused")
         @RequestLine("GET /target")
         String foo();
     }
 
     @Test
-    public void testIllegalClassHeader() throws Exception {
+    public void testIllegalClassHeader() {
 
         try {
             AsyncInvocationHandler.from(IllegalClassHeader.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
             failBecauseExceptionWasNotThrown(IllegalAccessException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("Failed to parse valid header from value \"invalid header\" on method");
+        }
+    }
+
+    public interface MultipleBodyParams {
+
+        @SuppressWarnings("unused")
+        @RequestLine("GET /foo")
+        String foo(String body1, String body2);
+
+    }
+
+    @Test
+    public void testMultipleBodyParams() {
+
+        try {
+            AsyncInvocationHandler.from(MultipleBodyParams.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
+        } catch (IllegalArgumentException e) {
+            assertThat(e.getMessage()).containsSubsequence("cannot have more than one body param");
+        }
+    }
+
+    public interface IllegalExpander {
+
+        class InvalidExpander implements Param.Expander {
+
+            private final String value;
+
+            public InvalidExpander(String value) {
+                this.value = value;
+            }
+
+            @Override
+            public <T> String expand(T input) {
+                return value;
+            }
+        }
+
+        @SuppressWarnings("unused")
+        @RequestLine("GET /foo")
+        String foo(@Param(value = "foo", expander = InvalidExpander.class) String body);
+
+    }
+
+    @Test
+    public void testIllegalExpander() {
+
+        try {
+            AsyncInvocationHandler.from(IllegalExpander.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
+        } catch (IllegalArgumentException e) {
+            assertThat(e.getMessage()).containsSubsequence("Failed to create expander");
         }
     }
 
@@ -185,13 +244,14 @@ public class AsyncInvocationHandlerParsingTest {
     @Header("X-Header: header")
     public interface ClassLevelHeader {
 
+        @SuppressWarnings("unused")
         @RequestLine("GET /foo")
         String foo();
 
     }
 
     @Test
-    public void testClassLevelHeader() throws Exception {
+    public void testClassLevelHeader() {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(ClassLevelHeader.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
@@ -205,6 +265,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Header("X-Header-1: header")
     public interface HeaderCombinations {
 
+        @SuppressWarnings("unused")
         @Header("X-Header-2: header")
         @RequestLine("GET /foo")
         String foo();
@@ -212,7 +273,7 @@ public class AsyncInvocationHandlerParsingTest {
     }
 
     @Test
-    public void testHeaderCombinations() throws Exception {
+    public void testHeaderCombinations() {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderCombinations.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
@@ -225,6 +286,7 @@ public class AsyncInvocationHandlerParsingTest {
 
     public interface MultipleHeaders {
 
+        @SuppressWarnings("unused")
         @Header("X-Header-1: header")
         @Header("X-Header-2: header")
         @RequestLine("GET /foo")
@@ -233,9 +295,9 @@ public class AsyncInvocationHandlerParsingTest {
     }
 
     @Test
-    public void testMultipleHeaders() throws Exception {
+    public void testMultipleHeaders() {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderCombinations.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(MultipleHeaders.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
         assertThat(fooHandler.getReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
@@ -248,6 +310,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Header("X-Header: header")
     public interface HeaderOverrides {
 
+        @SuppressWarnings("unused")
         @Header("X-Header: overridden")
         @RequestLine("GET /foo")
         String foo();
@@ -255,7 +318,7 @@ public class AsyncInvocationHandlerParsingTest {
     }
 
     @Test
-    public void testHeaderOverrides() throws Exception {
+    public void testHeaderOverrides() {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderOverrides.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
@@ -270,6 +333,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Header("X-Header-4: header")
     public interface HeaderOrder {
 
+        @SuppressWarnings("unused")
         @Header("X-Header-1: header")
         @Header("X-Header-2: header")
         @RequestLine("GET /foo")
@@ -278,7 +342,7 @@ public class AsyncInvocationHandlerParsingTest {
     }
 
     @Test
-    public void testHeaderOrder() throws Exception {
+    public void testHeaderOrder() {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderOrder.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
@@ -295,13 +359,14 @@ public class AsyncInvocationHandlerParsingTest {
 
     public interface MultipleQueryParams {
 
+        @SuppressWarnings("unused")
         @RequestLine("GET /foo?foo={foo}&bar=bar&baz=&bibbly&")
         String foo();
 
     }
 
     @Test
-    public void testMultipleQueryParams() throws Exception {
+    public void testMultipleQueryParams() {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(MultipleQueryParams.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 

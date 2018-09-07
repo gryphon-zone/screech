@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 public interface Retryer {
 }

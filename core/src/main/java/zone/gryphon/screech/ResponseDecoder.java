@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;

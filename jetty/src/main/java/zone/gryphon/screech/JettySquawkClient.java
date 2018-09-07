@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Result;
@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
-public class JettySquawkClient implements Client, Closeable {
+public class JettyscreechClient implements Client, Closeable {
 
     private static HttpClient createAndConfigureClient() {
         HttpClient client = new HttpClient();
@@ -22,11 +22,11 @@ public class JettySquawkClient implements Client, Closeable {
 
     private final HttpClient client;
 
-    public JettySquawkClient() {
+    public JettyscreechClient() {
         this(createAndConfigureClient());
     }
 
-    public JettySquawkClient(HttpClient client) {
+    public JettyscreechClient(HttpClient client) {
         this.client = client;
 
         try {

@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.mockwebserver.MockResponse;
@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
-public class JettySquawkClientTest {
+public class JettyscreechClientTest {
 
     static {
         SLF4JBridgeHandler.install();
@@ -27,7 +27,7 @@ public class JettySquawkClientTest {
     @Rule
     public MockWebServer mockWebServer = new MockWebServer();
 
-    private JettySquawkClient client = new JettySquawkClient();
+    private JettyscreechClient client = new JettyscreechClient();
 
     @Before
     public void setUp() throws Exception {

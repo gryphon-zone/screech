@@ -6,18 +6,18 @@
 
     <parent>
         <groupId>zone.gryphon</groupId>
-        <artifactId>squawk</artifactId>
+        <artifactId>screech</artifactId>
         <version>0.1-SNAPSHOT</version>
     </parent>
 
     <packaging>pom</packaging>
-    <artifactId>squawk-bom</artifactId>
+    <artifactId>screech-bom</artifactId>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>zone.gryphon</groupId>
-                <artifactId>squawk-core</artifactId>
+                <artifactId>screech-core</artifactId>
                 <version>0.1-SNAPSHOT</version>
             </dependency>
         </dependencies>

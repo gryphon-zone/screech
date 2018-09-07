@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;

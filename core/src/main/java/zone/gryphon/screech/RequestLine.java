@@ -1,4 +1,4 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

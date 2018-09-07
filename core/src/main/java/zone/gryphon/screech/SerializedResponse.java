@@ -1,10 +1,9 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import lombok.Builder;
 import lombok.Value;
 
-import java.util.Collection;
-import java.util.Map;
+import java.util.List;
 
 @Value
 @Builder(toBuilder = true)
@@ -12,7 +11,7 @@ public class SerializedResponse {
 
     private final ResponseBody responseBody;
 
-    private final Map<String, Collection<String>> headers;
+    private final List<HttpParam> headers;
 
     private final int status;
 

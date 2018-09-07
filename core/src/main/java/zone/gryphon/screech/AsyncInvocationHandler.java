@@ -1,9 +1,8 @@
-package zone.gryphon.squawk;
+package zone.gryphon.screech;
 
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.annotation.Annotation;
@@ -19,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -27,7 +27,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Slf4j
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class AsyncInvocationHandler<R> implements InvocationHandler {
 
     public static <X> AsyncInvocationHandler<X> from(
@@ -133,7 +132,11 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
         if (returnType.isAssignableFrom(CompletableFuture.class)) {
             return responseUnwrapped;
         } else {
-            return responseUnwrapped.get();
+            try {
+                return responseUnwrapped.get();
+            } catch (Throwable e) {
+                throw Util.unwrap(e);
+            }
         }
     }
 
@@ -297,11 +300,8 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
                 continue;
             }
 
-            if (params.size() > 1) {
-                throw new IllegalArgumentException("Cannot have more than 1 Param annotation on a single param");
-            }
-
-            // already make sure the collection wasn't empty, so don't need to do an "isPresent" check
+            // already make sure the collection wasn't empty, so don't need to do an "isPresent" check.
+            // Also, `Param` isn't repeatable, so there should only ever be exactly 1
             Param param = params.stream().findAny().get();
 
             nameSuppliers[i] = param::value;
@@ -422,39 +422,49 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
         CompletableFuture<Response<X>> out = new CompletableFuture<>();
 
         asyncResponse.whenComplete((serializedResponse, throwable) -> {
+            try {
 
-            if (throwable != null) {
-                out.completeExceptionally(throwable);
-                return;
-            }
-
-            if (serializedResponse.getStatus() >= 300) {
-                errorDecoder.decode(serializedResponse).whenComplete((response, exception) -> {
-                    if (response != null) {
-                        // noinspection unchecked
-                        out.complete((Response<X>) response);
-                    } else {
-                        out.completeExceptionally(exception);
-                    }
-                });
-
-                return;
-            }
-
-            responseDecoder.decode(serializedResponse, returnType).whenComplete((result, exception) -> {
-
-                if (exception != null) {
-                    out.completeExceptionally(exception);
+                if (throwable != null) {
+                    out.completeExceptionally(throwable);
                     return;
                 }
 
-                Response<?> response = Response.builder()
-                        .entity(result)
-                        .build();
+                if (serializedResponse == null) {
+                    out.completeExceptionally(new NullPointerException(String.format("Client \"%s\" returned null response", client.getClass().getSimpleName())));
+                    return;
+                }
 
-                // noinspection unchecked
-                out.complete((Response<X>) response);
-            });
+                if (serializedResponse.getStatus() >= 300) {
+                    errorDecoder.decode(serializedResponse).whenComplete((response, exception) -> {
+                        if (response != null) {
+                            // noinspection unchecked
+                            out.complete((Response<X>) response);
+                        } else {
+                            out.completeExceptionally(exception);
+                        }
+                    });
+
+                    return;
+                }
+
+                Objects.requireNonNull(responseDecoder.decode(serializedResponse, returnType), String.format("Decoder \"%s\" returned null response", responseDecoder.getClass().getSimpleName()))
+                        .whenComplete((result, exception) -> {
+
+                            if (exception != null) {
+                                out.completeExceptionally(exception);
+                                return;
+                            }
+
+                            Response<?> response = Response.builder()
+                                    .entity(result)
+                                    .build();
+
+                            // noinspection unchecked
+                            out.complete((Response<X>) response);
+                        });
+            } catch (Throwable e) {
+                out.completeExceptionally(e);
+            }
         });
 
         return out;
