@@ -27,18 +27,20 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class AsyncInvocationHandler<R> implements InvocationHandler {
+public class AsyncInvocationHandler implements InvocationHandler {
 
-    public static <X> AsyncInvocationHandler<X> from(
+    static AsyncInvocationHandler from(
             Method method,
             RequestEncoder requestEncoder,
-            List<RequestInterceptor<?, ?, ?>> requestInterceptors,
+            List<RequestInterceptor> requestInterceptors,
             ResponseDecoder responseDecoder,
             ErrorDecoder errorDecoder,
             Client client,
             Target target) {
-        return new AsyncInvocationHandler<>(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
     }
+
+    private static final CompletableFuture<?> NULL_FUTURE = CompletableFuture.completedFuture(null);
 
     @Getter(AccessLevel.PROTECTED)
     private final Class<?> returnType;
@@ -65,7 +67,7 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
 
     private final RequestEncoder encoder;
 
-    private final List<RequestInterceptor<?, ?, ?>> requestInterceptors;
+    private final List<RequestInterceptor> requestInterceptors;
 
     private final ResponseDecoder responseDecoder;
 
@@ -78,7 +80,7 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
     private AsyncInvocationHandler(
             @NonNull Method method,
             @NonNull RequestEncoder encoder,
-            @NonNull List<RequestInterceptor<?, ?, ?>> requestInterceptors,
+            @NonNull List<RequestInterceptor> requestInterceptors,
             @NonNull ResponseDecoder responseDecoder,
             @NonNull ErrorDecoder errorDecoder,
             @NonNull Client client,
@@ -125,9 +127,9 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        CompletableFuture<Response<R>> response = setUpInterceptors(0, buildRequest(args));
+        CompletableFuture<Response<?>> response = setUpInterceptors(0, buildRequest(args));
 
-        CompletableFuture<R> responseUnwrapped = response.thenApply(Response::getEntity);
+        CompletableFuture<?> responseUnwrapped = response.thenApply(Response::getEntity);
 
         if (returnType.isAssignableFrom(CompletableFuture.class)) {
             return responseUnwrapped;
@@ -330,6 +332,7 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
     }
 
     private <X> Request<X> buildRequest(Object[] args) {
+        //noinspection unchecked
         return Request.<X>builder()
                 .method(httpMethod)
                 .uri(target.getTarget() + this.path)
@@ -338,35 +341,6 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
                 .headers(headerParams)
                 .entity((X) bodyFunction.apply(args))
                 .build();
-    }
-
-    private <X, Y, Z> CompletableFuture<Response<Z>> setUpInterceptors(int index, Request<X> request) {
-
-        if (index >= requestInterceptors.size()) {
-            return performClientCall(request);
-        }
-
-        @SuppressWarnings("unchecked")
-        RequestInterceptor<X, Y, Z> requestInterceptor = (RequestInterceptor<X, Y, Z>) requestInterceptors.get(index);
-
-        return requestInterceptor.intercept(request, modifiedRequest -> setUpInterceptors(index + 1, modifiedRequest));
-    }
-
-    private <X> CompletableFuture<Response<X>> performClientCall(Request request) {
-
-        CompletableFuture<ByteBuffer> bufferFuture;
-
-        if (request.getEntity() != null) {
-            bufferFuture = encoder.encode(request.getEntity());
-        } else {
-            bufferFuture = CompletableFuture.completedFuture(null);
-        }
-
-        CompletableFuture<SerializedResponse> response = bufferFuture
-                .thenApply(buffer -> convertRequestIntoSerializedRequest(buffer, request))
-                .thenCompose(client::request);
-
-        return decode(response);
     }
 
     private SerializedRequest convertRequestIntoSerializedRequest(ByteBuffer buffer, Request<?> request) {
@@ -402,7 +376,6 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
         return params.stream()
                 .map(param -> interpolateSimgleHttpParam(param, templateParams))
                 .collect(Collectors.toList());
-
     }
 
     private HttpParam interpolateSimgleHttpParam(HttpParam queryParam, Map<String, String> templateParams) {
@@ -418,58 +391,6 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
         return queryParam;
     }
 
-    private <X> CompletableFuture<Response<X>> decode(CompletableFuture<SerializedResponse> asyncResponse) {
-        CompletableFuture<Response<X>> out = new CompletableFuture<>();
-
-        asyncResponse.whenComplete((serializedResponse, throwable) -> {
-            try {
-
-                if (throwable != null) {
-                    out.completeExceptionally(throwable);
-                    return;
-                }
-
-                if (serializedResponse == null) {
-                    out.completeExceptionally(new NullPointerException(String.format("Client \"%s\" returned null response", client.getClass().getSimpleName())));
-                    return;
-                }
-
-                if (serializedResponse.getStatus() >= 300) {
-                    errorDecoder.decode(serializedResponse).whenComplete((response, exception) -> {
-                        if (response != null) {
-                            // noinspection unchecked
-                            out.complete((Response<X>) response);
-                        } else {
-                            out.completeExceptionally(exception);
-                        }
-                    });
-
-                    return;
-                }
-
-                Objects.requireNonNull(responseDecoder.decode(serializedResponse, returnType), String.format("Decoder \"%s\" returned null response", responseDecoder.getClass().getSimpleName()))
-                        .whenComplete((result, exception) -> {
-
-                            if (exception != null) {
-                                out.completeExceptionally(exception);
-                                return;
-                            }
-
-                            Response<?> response = Response.builder()
-                                    .entity(result)
-                                    .build();
-
-                            // noinspection unchecked
-                            out.complete((Response<X>) response);
-                        });
-            } catch (Throwable e) {
-                out.completeExceptionally(e);
-            }
-        });
-
-        return out;
-    }
-
     private String parseContentType(List<HttpParam> headers) {
         headers = Optional.ofNullable(headers).orElseGet(Collections::emptyList);
 
@@ -478,6 +399,92 @@ public class AsyncInvocationHandler<R> implements InvocationHandler {
                 .findAny()
                 .map(HttpParam::getValue)
                 .orElse("application/octet-stream");
+    }
+
+    private <T> CompletableFuture<T> requireNonNull(CompletableFuture<T> future, String type, Object o) {
+        return Objects.requireNonNull(future, () -> String.format("%s \"%s\" returned null value instead of CompletableFuture", type, o.getClass().getSimpleName()));
+    }
+
+    private CompletableFuture<Response<?>> setUpInterceptors(int index, Request<?> request) {
+
+        if (index >= requestInterceptors.size()) {
+            return performClientCall(request);
+        }
+
+        RequestInterceptor requestInterceptor = requestInterceptors.get(index);
+
+        //noinspection unchecked
+        return requestInterceptor.intercept(request, modifiedRequest -> (CompletableFuture) setUpInterceptors(index + 1, modifiedRequest));
+    }
+
+    private CompletableFuture<Response<?>> performClientCall(Request request) {
+
+        CompletableFuture<ByteBuffer> bufferFuture;
+
+        if (request.getEntity() != null) {
+            bufferFuture = requireNonNull(encoder.encode(request.getEntity()), "Encoder", encoder);
+        } else {
+            //noinspection unchecked
+            bufferFuture = (CompletableFuture) NULL_FUTURE;
+        }
+
+        return decode(bufferFuture
+                .thenApply(buffer -> convertRequestIntoSerializedRequest(buffer, request))
+                .thenCompose(client::request));
+    }
+
+    private CompletableFuture<Response<?>> decode(CompletableFuture<SerializedResponse> clientResponse) {
+        CompletableFuture<Response<?>> out = new CompletableFuture<>();
+
+        clientResponse.whenComplete((result, throwable) -> {
+            try {
+                if (throwable != null) {
+                    out.completeExceptionally(throwable);
+
+                } else if (result == null) {
+                    String message = String.format("Client \"%s\" returned null SerializedResponse", client.getClass().getSimpleName());
+                    out.completeExceptionally(new NullPointerException(message));
+
+                } else if (result.getStatus() >= 300) {
+                    handleNonSuccessStatus(out, result);
+
+                } else {
+                    handleSuccessStatus(out, result);
+                }
+            } catch (Throwable e) {
+                out.completeExceptionally(e);
+            }
+        });
+
+        return out;
+    }
+
+    private void handleNonSuccessStatus(CompletableFuture<Response<?>> out, SerializedResponse serializedResponse) {
+        requireNonNull(errorDecoder.decode(serializedResponse), "Error Decoder", errorDecoder).whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                out.completeExceptionally(throwable);
+            } else if (result != null) {
+                out.complete(result);
+            } else {
+                String message = String.format("Error Decoder \"%s\" returned null response", errorDecoder.getClass().getSimpleName());
+                out.completeExceptionally(new NullPointerException(message));
+            }
+        });
+    }
+
+    private void handleSuccessStatus(CompletableFuture<Response<?>> out, SerializedResponse serializedResponse) {
+        requireNonNull(responseDecoder.decode(serializedResponse, returnType), "Decoder", responseDecoder).whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                out.completeExceptionally(throwable);
+            } else {
+                Response<?> response = Response.builder()
+                        .entity(result)
+                        .build();
+
+                // noinspection unchecked
+                out.complete(response);
+            }
+        });
     }
 
 }

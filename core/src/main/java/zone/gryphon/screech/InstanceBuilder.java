@@ -17,7 +17,7 @@ public class InstanceBuilder {
 
     private RequestEncoder requestEncoder = new RequestEncoder.StringRequestEncoder();
 
-    private List<RequestInterceptor<?, ?, ?>> requestInterceptors = new ArrayList<>();
+    private List<RequestInterceptor> requestInterceptors = new ArrayList<>();
 
     private ResponseDecoder responseDecoder = new ResponseDecoder.StringResponseDecoder();
 
@@ -34,12 +34,12 @@ public class InstanceBuilder {
         return this;
     }
 
-    public InstanceBuilder addRequestInterceptor(@NonNull RequestInterceptor<?, ?, ?> requestInterceptor) {
+    public InstanceBuilder addRequestInterceptor(@NonNull RequestInterceptor requestInterceptor) {
         this.requestInterceptors.add(requestInterceptor);
         return this;
     }
 
-    public InstanceBuilder addRequestInterceptors(@NonNull Iterable<RequestInterceptor<?, ?, ?>> requestInterceptors) {
+    public InstanceBuilder addRequestInterceptors(@NonNull Iterable<RequestInterceptor> requestInterceptors) {
         requestInterceptors.forEach(this::addRequestInterceptor);
         return this;
     }

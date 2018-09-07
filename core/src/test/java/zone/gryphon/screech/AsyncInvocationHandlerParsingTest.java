@@ -15,7 +15,7 @@ public class AsyncInvocationHandlerParsingTest {
 
     private RequestEncoder requestEncoder = mock(RequestEncoder.class);
 
-    private List<RequestInterceptor<?, ?, ?>> requestInterceptors = Collections.emptyList();
+    private List<RequestInterceptor> requestInterceptors = Collections.emptyList();
 
     private ResponseDecoder responseDecoder = mock(ResponseDecoder.class);
 

@@ -32,7 +32,7 @@ public class AsyncInvocationHandlerInvocationTest {
 
     private RequestEncoder requestEncoder = mock(RequestEncoder.class);
 
-    private List<RequestInterceptor<?, ?, ?>> requestInterceptors;
+    private List<RequestInterceptor> requestInterceptors;
 
     private ResponseDecoder responseDecoder = mock(ResponseDecoder.class);
 
