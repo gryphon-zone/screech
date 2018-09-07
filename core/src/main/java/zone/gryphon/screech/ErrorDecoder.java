@@ -1,18 +1,16 @@
 package zone.gryphon.screech;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public interface ErrorDecoder {
 
-    CompletableFuture<Response<?>> decode(SerializedResponse response);
+    void decode(SerializedResponse response, Consumer<Response<?>> callback);
 
     class DefaultErrorDecoder implements ErrorDecoder {
 
         @Override
-        public CompletableFuture<Response<?>> decode(SerializedResponse response) {
-            CompletableFuture<Response<?>> future = new CompletableFuture<>();
-            future.completeExceptionally(new IllegalArgumentException("ASDFASDFASDF"));
-            return future;
+        public void decode(SerializedResponse response, Consumer<Response<?>> callback) {
+            throw new IllegalArgumentException("ASDFASDFASFD");
         }
     }
 

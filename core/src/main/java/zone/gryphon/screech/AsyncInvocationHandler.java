@@ -22,6 +22,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -127,9 +130,13 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        CompletableFuture<Response<?>> response = setUpInterceptors(0, buildRequest(args));
+        CompletableFuture<Response<?>> response = new CompletableFuture<>();
 
         CompletableFuture<?> responseUnwrapped = response.thenApply(Response::getEntity);
+
+        setUpInterceptors(0, buildRequest(args), result -> {
+            response.complete(result);
+        });
 
         if (returnType.isAssignableFrom(CompletableFuture.class)) {
             return responseUnwrapped;
@@ -405,85 +412,73 @@ public class AsyncInvocationHandler implements InvocationHandler {
         return Objects.requireNonNull(future, () -> String.format("%s \"%s\" returned null value instead of CompletableFuture", type, o.getClass().getSimpleName()));
     }
 
-    private CompletableFuture<Response<?>> setUpInterceptors(int index, Request<?> request) {
+    private void setUpInterceptors(int index, Request<?> request, Consumer<Response<?>> callback) {
 
         if (index >= requestInterceptors.size()) {
-            return performClientCall(request);
+            performClientCall(request, callback);
+        } else {
+            RequestInterceptor requestInterceptor = requestInterceptors.get(index);
+
+            AtomicReference<BiConsumer<Response<?>, Consumer<Response<?>>>> consumerReference = new AtomicReference<>();
+
+            //noinspection unchecked
+            BiConsumer<Response<?>, Consumer<Response<?>>> consumer = (BiConsumer) requestInterceptor.intercept(request, modifiedRequest -> {
+                setUpInterceptors(index + 1, modifiedRequest, response -> {
+                    consumerReference.get().accept(response, callback);
+                });
+            });
+
+            consumerReference.set(consumer);
         }
-
-        RequestInterceptor requestInterceptor = requestInterceptors.get(index);
-
-        //noinspection unchecked
-        return requestInterceptor.intercept(request, modifiedRequest -> (CompletableFuture) setUpInterceptors(index + 1, modifiedRequest));
     }
 
-    private CompletableFuture<Response<?>> performClientCall(Request request) {
+    private void performClientCall(Request request, Consumer<Response<?>> callback) {
 
-        CompletableFuture<ByteBuffer> bufferFuture;
 
         if (request.getEntity() != null) {
-            bufferFuture = requireNonNull(encoder.encode(request.getEntity()), "Encoder", encoder);
+
+            encoder.encode(request.getEntity(), byteBuffer -> {
+                SerializedRequest serializedRequest = convertRequestIntoSerializedRequest(byteBuffer, request);
+
+                client.request(serializedRequest, serializedResponse -> {
+                    decode(serializedResponse, response -> {
+                        callback.accept(response);
+                    });
+                });
+            });
+
         } else {
-            //noinspection unchecked
-            bufferFuture = (CompletableFuture) NULL_FUTURE;
+            SerializedRequest serializedRequest = convertRequestIntoSerializedRequest(null, request);
+
+            client.request(serializedRequest, serializedResponse -> {
+                decode(serializedResponse, response -> {
+                    callback.accept(response);
+                });
+            });
         }
-
-        return decode(bufferFuture
-                .thenApply(buffer -> convertRequestIntoSerializedRequest(buffer, request))
-                .thenCompose(client::request));
     }
 
-    private CompletableFuture<Response<?>> decode(CompletableFuture<SerializedResponse> clientResponse) {
-        CompletableFuture<Response<?>> out = new CompletableFuture<>();
-
-        clientResponse.whenComplete((result, throwable) -> {
-            try {
-                if (throwable != null) {
-                    out.completeExceptionally(throwable);
-
-                } else if (result == null) {
-                    String message = String.format("Client \"%s\" returned null SerializedResponse", client.getClass().getSimpleName());
-                    out.completeExceptionally(new NullPointerException(message));
-
-                } else if (result.getStatus() >= 300) {
-                    handleNonSuccessStatus(out, result);
-
-                } else {
-                    handleSuccessStatus(out, result);
-                }
-            } catch (Throwable e) {
-                out.completeExceptionally(e);
-            }
-        });
-
-        return out;
+    private void decode(SerializedResponse clientResponse, Consumer<Response<?>> callback) {
+        if (clientResponse.getStatus() >= 300) {
+            handleNonSuccessStatus(clientResponse, callback);
+        } else {
+            handleSuccessStatus(clientResponse, callback);
+        }
     }
 
-    private void handleNonSuccessStatus(CompletableFuture<Response<?>> out, SerializedResponse serializedResponse) {
-        requireNonNull(errorDecoder.decode(serializedResponse), "Error Decoder", errorDecoder).whenComplete((result, throwable) -> {
-            if (throwable != null) {
-                out.completeExceptionally(throwable);
-            } else if (result != null) {
-                out.complete(result);
-            } else {
-                String message = String.format("Error Decoder \"%s\" returned null response", errorDecoder.getClass().getSimpleName());
-                out.completeExceptionally(new NullPointerException(message));
-            }
+    private void handleNonSuccessStatus(SerializedResponse clientResponse, Consumer<Response<?>> callback) {
+        errorDecoder.decode(clientResponse, result -> {
+            callback.accept(result);
         });
     }
 
-    private void handleSuccessStatus(CompletableFuture<Response<?>> out, SerializedResponse serializedResponse) {
-        requireNonNull(responseDecoder.decode(serializedResponse, returnType), "Decoder", responseDecoder).whenComplete((result, throwable) -> {
-            if (throwable != null) {
-                out.completeExceptionally(throwable);
-            } else {
-                Response<?> response = Response.builder()
-                        .entity(result)
-                        .build();
+    private void handleSuccessStatus(SerializedResponse clientResponse, Consumer<Response<?>> callback) {
+        responseDecoder.decode(clientResponse, returnType, result -> {
+            Response<?> response = Response.builder()
+                    .entity(result)
+                    .build();
 
-                // noinspection unchecked
-                out.complete(response);
-            }
+            callback.accept(response);
         });
     }
 

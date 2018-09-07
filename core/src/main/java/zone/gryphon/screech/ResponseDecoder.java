@@ -2,35 +2,41 @@ package zone.gryphon.screech;
 
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 public interface ResponseDecoder {
 
-    CompletableFuture<?> decode(SerializedResponse response, Type type);
+    void decode(SerializedResponse response, Type type, Consumer<Object> callback);
 
     class StringResponseDecoder implements ResponseDecoder {
 
         @Override
-        public CompletableFuture<?> decode(SerializedResponse response, Type type) {
+        public void decode(SerializedResponse response, Type type, Consumer<Object> callback) {
 
             if (response.getStatus() == 404) {
-                return CompletableFuture.completedFuture(null);
+                callback.accept(null);
+                return;
             }
 
             if (response.getResponseBody() == null) {
-                return CompletableFuture.completedFuture(null);
+                callback.accept(null);
+                return;
             }
 
             if (byte[].class.equals(type)) {
-                return CompletableFuture.completedFuture(response.getResponseBody().getBody().array());
+                callback.accept(response.getResponseBody().getBody().array());
+                return;
             }
 
             if (ByteBuffer.class.equals(type)) {
-                return CompletableFuture.completedFuture(response.getResponseBody().getBody());
+                callback.accept(response.getResponseBody().getBody());
+                return;
             }
 
             try {
-                return CompletableFuture.completedFuture(new String(response.getResponseBody().getBody().array(), response.getResponseBody().getEncoding()));
+                callback.accept(new String(response.getResponseBody().getBody().array(), Optional.ofNullable(response.getResponseBody().getEncoding()).orElse(StandardCharsets.UTF_8.name())));
             } catch (Exception e) {
                 throw new IllegalStateException("Unknown encoding " + response.getResponseBody().getEncoding());
             }

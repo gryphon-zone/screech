@@ -1,8 +1,8 @@
 package zone.gryphon.screech;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public interface Client {
 
-    CompletableFuture<SerializedResponse> request(SerializedRequest request);
+    void request(SerializedRequest request, Consumer<SerializedResponse> callback);
 }

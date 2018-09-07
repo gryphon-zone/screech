@@ -10,8 +10,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
-public class JettyscreechClient implements Client, Closeable {
+public class JettyScreechClient implements Client, Closeable {
 
     private static HttpClient createAndConfigureClient() {
         HttpClient client = new HttpClient();
@@ -22,11 +23,11 @@ public class JettyscreechClient implements Client, Closeable {
 
     private final HttpClient client;
 
-    public JettyscreechClient() {
+    public JettyScreechClient() {
         this(createAndConfigureClient());
     }
 
-    public JettyscreechClient(HttpClient client) {
+    public JettyScreechClient(HttpClient client) {
         this.client = client;
 
         try {
@@ -37,22 +38,18 @@ public class JettyscreechClient implements Client, Closeable {
     }
 
     @Override
-    public CompletableFuture<SerializedResponse> request(SerializedRequest request) {
-        CompletableFuture<SerializedResponse> response = new CompletableFuture<>();
-
+    public void request(SerializedRequest request, Consumer<SerializedResponse> callback) {
         convert(request).send(new BufferingResponseListener() {
 
             @Override
             public void onComplete(Result result) {
                 try {
-                    response.complete(convert(result, getContent(), getEncoding(), getMediaType()));
+                    callback.accept(convert(result, getContent(), getEncoding(), getMediaType()));
                 } catch (Throwable e) {
                     response.completeExceptionally(e);
                 }
             }
         });
-
-        return response;
     }
 
     private SerializedResponse convert(Result result, byte[] body, String encoding, String contentType) throws Throwable {
@@ -71,7 +68,7 @@ public class JettyscreechClient implements Client, Closeable {
         return SerializedResponse.builder()
                 .status(result.getResponse().getStatus())
                 .responseBody(responseBody)
-                .headers(Collections.unmodifiableMap(headers))
+                .headers(Collections.unmodifiableList(Collections.emptyList()))
                 .build();
     }
 
@@ -102,4 +99,5 @@ public class JettyscreechClient implements Client, Closeable {
             throw new IOException("Failed to close client", e);
         }
     }
+
 }

@@ -94,7 +94,7 @@ public class AsyncInvocationHandlerInvocationTest {
                         .build())
                 .build();
 
-        doReturn(CompletableFuture.completedFuture(response)).when(client).request(any());
+        doReturn(CompletableFuture.completedFuture(response)).when(client).request(any(), any());
 
         String result = instance.foo("classHeaderValue", "methodHeaderValue", "barValue", "bazValue", "request body");
 
@@ -108,7 +108,7 @@ public class AsyncInvocationHandlerInvocationTest {
                 .requestBody(RequestBody.builder().contentType("application/json").body(ByteBuffer.wrap("request body".getBytes(UTF_8))).build())
                 .build();
 
-        verify(client).request(expectedRequest);
+        verify(client).request(expectedRequest, null);
 
     }
 
