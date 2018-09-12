@@ -4,27 +4,30 @@ package zone.gryphon.screech;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.Test;
+import zone.gryphon.screech.model.HttpParam;
+import zone.gryphon.screech.model.RequestBody;
+import zone.gryphon.screech.model.ResponseBody;
+import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.model.SerializedResponse;
 
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
-import static org.assertj.core.api.Assertions.in;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @SuppressWarnings("unchecked")
 @Slf4j
@@ -94,7 +97,10 @@ public class AsyncInvocationHandlerInvocationTest {
                         .build())
                 .build();
 
-        doReturn(CompletableFuture.completedFuture(response)).when(client).request(any(), any());
+        doAnswer(invocation -> {
+            ((Callback)invocation.getArguments()[1]).onSuccess(response);
+            return null;
+        }).when(client).request(any(), any());
 
         String result = instance.foo("classHeaderValue", "methodHeaderValue", "barValue", "bazValue", "request body");
 
@@ -108,7 +114,7 @@ public class AsyncInvocationHandlerInvocationTest {
                 .requestBody(RequestBody.builder().contentType("application/json").body(ByteBuffer.wrap("request body".getBytes(UTF_8))).build())
                 .build();
 
-        verify(client).request(expectedRequest, null);
+        verify(client).request(eq(expectedRequest), any());
 
     }
 

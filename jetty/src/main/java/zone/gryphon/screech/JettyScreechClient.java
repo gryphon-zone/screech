@@ -4,12 +4,14 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Result;
 import org.eclipse.jetty.client.util.BufferingResponseListener;
 import org.eclipse.jetty.client.util.ByteBufferContentProvider;
+import zone.gryphon.screech.model.ResponseBody;
+import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.model.SerializedResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 public class JettyScreechClient implements Client, Closeable {
@@ -38,15 +40,15 @@ public class JettyScreechClient implements Client, Closeable {
     }
 
     @Override
-    public void request(SerializedRequest request, Consumer<SerializedResponse> callback) {
+    public void request(SerializedRequest request, Callback<SerializedResponse> callback) {
         convert(request).send(new BufferingResponseListener() {
 
             @Override
             public void onComplete(Result result) {
                 try {
-                    callback.accept(convert(result, getContent(), getEncoding(), getMediaType()));
+                    callback.onSuccess(convert(result, getContent(), getEncoding(), getMediaType()));
                 } catch (Throwable e) {
-                    response.completeExceptionally(e);
+                    callback.onError(e);
                 }
             }
         });
@@ -77,11 +79,11 @@ public class JettyScreechClient implements Client, Closeable {
                 .method(request.getMethod());
 
         if (request.getHeaders() != null) {
-            request.getHeaders().forEach((key, values) -> values.forEach(value -> jettyRequest.header(key, value)));
+//            request.getHeaders().forEach((key, values) -> values.forEach(value -> jettyRequest.header(key, value)));
         }
 
         if (request.getQueryParams() != null) {
-            request.getQueryParams().forEach((key, values) -> values.forEach(value -> jettyRequest.param(key, value)));
+//            request.getQueryParams().forEach((key, values) -> values.forEach(value -> jettyRequest.param(key, value)));
         }
 
         if (request.getRequestBody() != null) {
@@ -99,5 +101,6 @@ public class JettyScreechClient implements Client, Closeable {
             throw new IOException("Failed to close client", e);
         }
     }
+
 
 }

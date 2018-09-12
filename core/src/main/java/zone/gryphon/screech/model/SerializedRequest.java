@@ -1,13 +1,11 @@
-package zone.gryphon.screech;
+package zone.gryphon.screech.model;
 
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 
 import java.net.URI;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 @Value
 @Builder(toBuilder = true)

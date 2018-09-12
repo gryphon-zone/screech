@@ -33,7 +33,14 @@
                 <version>9.4.11.v20180605</version>
             </dependency>
 
-
+            <dependency>
+                <!-- intentionally left on an old version, to avoid pulling in a newer version  -->
+                <!-- than clients of the screech library will be pulling in, to avoid issues    -->
+                <!-- caused by maven implicitly pulling in the newer version.                   -->
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.6.7</version>
+            </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>

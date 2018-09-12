@@ -1,19 +1,32 @@
 package zone.gryphon.screech;
 
+import zone.gryphon.screech.model.Request;
+import zone.gryphon.screech.model.Response;
+
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public interface RequestInterceptor {
 
-    <X, Y> BiConsumer<Response<Y>, Consumer<Response<?>>> intercept(Request<X> request, Consumer<Request<?>> callback);
+    <X, Y> void intercept(
+            Request<X> request,
+            BiConsumer<Request<?>, Callback<Response<Y>>> callback,
+            Callback<Response<?>> responseCallback);
 
     class PassThroughRequestInterceptor implements RequestInterceptor {
 
         @Override
-        public <X, Y> BiConsumer<Response<Y>, Consumer<Response<?>>> intercept(Request<X> request, Consumer<Request<?>> callback) {
-            callback.accept(request);
+        public <X, Y> void intercept(
+                Request<X> request,
+                BiConsumer<Request<?>, Callback<Response<Y>>> callback,
+                Callback<Response<?>> responseCallback) {
 
-            return (response, responseCallback) -> responseCallback.accept(response);
+            callback.accept(request, (FunctionalCallback<Response<Y>>) (result, e) -> {
+                if (e != null) {
+                    responseCallback.onError(e);
+                } else {
+                    responseCallback.onSuccess(result);
+                }
+            });
         }
     }
 

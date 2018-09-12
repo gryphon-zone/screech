@@ -4,11 +4,20 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import zone.gryphon.screech.model.HttpParam;
+import zone.gryphon.screech.model.Request;
+import zone.gryphon.screech.model.RequestBody;
+import zone.gryphon.screech.model.Response;
+import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.util.Util;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -18,13 +27,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -43,10 +48,11 @@ public class AsyncInvocationHandler implements InvocationHandler {
         return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
     }
 
-    private static final CompletableFuture<?> NULL_FUTURE = CompletableFuture.completedFuture(null);
+    @Getter(AccessLevel.PROTECTED)
+    private final Class<?> actualReturnType;
 
     @Getter(AccessLevel.PROTECTED)
-    private final Class<?> returnType;
+    private final Type effectiveReturnType;
 
     @Getter(AccessLevel.PROTECTED)
     private final String httpMethod;
@@ -101,7 +107,9 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         this.client = client;
 
-        this.returnType = method.getReturnType();
+        this.actualReturnType = method.getReturnType();
+
+        this.effectiveReturnType = parseReturnType(method);
 
         this.methodKey = Util.toString(method);
 
@@ -134,11 +142,19 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         CompletableFuture<?> responseUnwrapped = response.thenApply(Response::getEntity);
 
-        setUpInterceptors(0, buildRequest(args), result -> {
-            response.complete(result);
+        setUpInterceptors(0, buildRequest(args), new Callback<Response<?>>() {
+            @Override
+            public void onSuccess(Response<?> result) {
+                response.complete(result);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                response.completeExceptionally(e);
+            }
         });
 
-        if (returnType.isAssignableFrom(CompletableFuture.class)) {
+        if (actualReturnType.isAssignableFrom(CompletableFuture.class)) {
             return responseUnwrapped;
         } else {
             try {
@@ -146,6 +162,15 @@ public class AsyncInvocationHandler implements InvocationHandler {
             } catch (Throwable e) {
                 throw Util.unwrap(e);
             }
+        }
+    }
+
+    private Type parseReturnType(Method method) {
+
+        if (CompletableFuture.class.equals(method.getReturnType())) {
+            return ((ParameterizedType) method.getGenericReturnType()).getActualTypeArguments()[0];
+        } else {
+            return method.getReturnType();
         }
     }
 
@@ -408,78 +433,116 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 .orElse("application/octet-stream");
     }
 
-    private <T> CompletableFuture<T> requireNonNull(CompletableFuture<T> future, String type, Object o) {
-        return Objects.requireNonNull(future, () -> String.format("%s \"%s\" returned null value instead of CompletableFuture", type, o.getClass().getSimpleName()));
-    }
-
-    private void setUpInterceptors(int index, Request<?> request, Consumer<Response<?>> callback) {
+    private void setUpInterceptors(int index, Request<?> request, Callback<Response<?>> modifiedResponseCallback) {
 
         if (index >= requestInterceptors.size()) {
-            performClientCall(request, callback);
+            performClientCall(request, modifiedResponseCallback);
         } else {
             RequestInterceptor requestInterceptor = requestInterceptors.get(index);
 
-            AtomicReference<BiConsumer<Response<?>, Consumer<Response<?>>>> consumerReference = new AtomicReference<>();
+            //noinspection unchecked,CodeBlock2Expr
+            wrapCallToUserCode(modifiedResponseCallback, () -> requestInterceptor.intercept(request, (modifiedRequest, responseCallback) -> {
+                setUpInterceptors(index + 1, modifiedRequest, new Callback<Response<?>>() {
+                    @Override
+                    public void onSuccess(Response<?> result) {
+                        responseCallback.onSuccess((Response) result);
+                    }
 
-            //noinspection unchecked
-            BiConsumer<Response<?>, Consumer<Response<?>>> consumer = (BiConsumer) requestInterceptor.intercept(request, modifiedRequest -> {
-                setUpInterceptors(index + 1, modifiedRequest, response -> {
-                    consumerReference.get().accept(response, callback);
+                    @Override
+                    public void onError(Throwable e) {
+                        responseCallback.onError(e);
+                    }
                 });
-            });
+            }, new Callback<Response<?>>() {
+                @Override
+                public void onSuccess(Response<?> result) {
+                    modifiedResponseCallback.onSuccess(result);
+                }
 
-            consumerReference.set(consumer);
+                @Override
+                public void onError(Throwable e) {
+                    modifiedResponseCallback.onError(e);
+                }
+            }));
         }
     }
 
-    private void performClientCall(Request request, Consumer<Response<?>> callback) {
-
-
+    private void performClientCall(Request request, Callback<Response<?>> callback) {
         if (request.getEntity() != null) {
 
-            encoder.encode(request.getEntity(), byteBuffer -> {
-                SerializedRequest serializedRequest = convertRequestIntoSerializedRequest(byteBuffer, request);
+            //noinspection CodeBlock2Expr
+            wrapCallToUserCode(callback, () -> encoder.encode(request.getEntity(), new Callback<ByteBuffer>() {
 
-                client.request(serializedRequest, serializedResponse -> {
-                    decode(serializedResponse, response -> {
-                        callback.accept(response);
-                    });
-                });
-            });
+                @Override
+                public void onSuccess(ByteBuffer result) {
+                    doRequest(result, request, callback);
+                }
 
+                @Override
+                public void onError(Throwable e) {
+                    callback.onError(e);
+                }
+
+            }));
         } else {
-            SerializedRequest serializedRequest = convertRequestIntoSerializedRequest(null, request);
-
-            client.request(serializedRequest, serializedResponse -> {
-                decode(serializedResponse, response -> {
-                    callback.accept(response);
-                });
-            });
+            doRequest(null, request, callback);
         }
     }
 
-    private void decode(SerializedResponse clientResponse, Consumer<Response<?>> callback) {
-        if (clientResponse.getStatus() >= 300) {
+    private void doRequest(ByteBuffer buffer, Request request, Callback<Response<?>> callback) {
+        wrapCallToUserCode(callback, () -> client.request(convertRequestIntoSerializedRequest(buffer, request), new Callback<SerializedResponse>() {
+
+            @Override
+            public void onSuccess(SerializedResponse result) {
+                decode(result, callback);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                callback.onError(e);
+            }
+        }));
+    }
+
+    private void decode(SerializedResponse clientResponse, Callback<Response<?>> callback) {
+        if (clientResponse == null) {
+            callback.onError(new NullPointerException(String.format("Client '%s' returned null SerializedResponse", client.getClass().getSimpleName())));
+        } else if (clientResponse.getStatus() >= 300) {
             handleNonSuccessStatus(clientResponse, callback);
         } else {
             handleSuccessStatus(clientResponse, callback);
         }
     }
 
-    private void handleNonSuccessStatus(SerializedResponse clientResponse, Consumer<Response<?>> callback) {
-        errorDecoder.decode(clientResponse, result -> {
-            callback.accept(result);
-        });
+    private void handleNonSuccessStatus(SerializedResponse clientResponse, Callback<Response<?>> callback) {
+        wrapCallToUserCode(callback, () -> errorDecoder.decode(clientResponse, callback));
     }
 
-    private void handleSuccessStatus(SerializedResponse clientResponse, Consumer<Response<?>> callback) {
-        responseDecoder.decode(clientResponse, returnType, result -> {
-            Response<?> response = Response.builder()
-                    .entity(result)
-                    .build();
+    private void handleSuccessStatus(SerializedResponse clientResponse, Callback<Response<?>> callback) {
+        wrapCallToUserCode(callback, () -> responseDecoder.decode(clientResponse, effectiveReturnType, new Callback<Object>() {
+            @Override
+            public void onSuccess(Object result) {
+                Response<?> response = Response.builder()
+                        .entity(result)
+                        .build();
 
-            callback.accept(response);
-        });
+                callback.onSuccess(response);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                callback.onError(e);
+            }
+
+        }));
+    }
+
+    private void wrapCallToUserCode(Callback<?> callback, Runnable runnable) {
+        try {
+            runnable.run();
+        } catch (Throwable e) {
+            callback.onError(e);
+        }
     }
 
 }

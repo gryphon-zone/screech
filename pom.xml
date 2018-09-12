@@ -22,7 +22,9 @@
         <module>bom</module>
         <module>build-bom</module>
         <module>core</module>
+        <module>jackson</module>
         <module>jetty</module>
+        <module>integration</module>
     </modules>
 
 </project>

@@ -1,4 +1,4 @@
-package zone.gryphon.screech;
+package zone.gryphon.screech.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

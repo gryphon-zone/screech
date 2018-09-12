@@ -1,4 +1,4 @@
-package zone.gryphon.screech;
+package zone.gryphon.screech.util;
 
 import lombok.experimental.UtilityClass;
 

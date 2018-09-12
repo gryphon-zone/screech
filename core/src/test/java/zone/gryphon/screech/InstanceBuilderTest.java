@@ -2,6 +2,9 @@ package zone.gryphon.screech;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
+import zone.gryphon.screech.model.ResponseBody;
+import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.model.SerializedResponse;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
@@ -28,14 +31,14 @@ public class InstanceBuilderTest {
     private static class MockClient implements Client {
 
         @Override
-        public void request(SerializedRequest request, Consumer<SerializedResponse> callback) {
+        public void request(SerializedRequest request, Callback<SerializedResponse> callback) {
             log.info("request: {}", request);
             if (request.getRequestBody() != null) {
                 log.info("request body: {}", new String(request.getRequestBody().getBody().array()));
             } else {
                 log.info("No request body");
             }
-            callback.accept(SerializedResponse.builder().responseBody(ResponseBody.builder().body(ByteBuffer.wrap("Hello world!".getBytes())).build()).build());
+            callback.onSuccess(SerializedResponse.builder().responseBody(ResponseBody.builder().body(ByteBuffer.wrap("Hello world!".getBytes())).build()).build());
         }
     }
 
