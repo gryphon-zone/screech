@@ -9,6 +9,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -28,8 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class BasicIntegrationTest {
 
     static {
-        SLF4JBridgeHandler.install();
         SLF4JBridgeHandler.removeHandlersForRootLogger();
+        SLF4JBridgeHandler.install();
     }
 
     @Data
@@ -82,82 +83,65 @@ public class BasicIntegrationTest {
     @Test(timeout = 15000)
     public void testPostWithBody() throws Exception {
         Widget request = new Widget(UUID.randomUUID());
-
         Widget response = new Widget(UUID.randomUUID());
 
         server.enqueue(new MockResponse().setBody(objectMapper.writeValueAsString(response)));
 
-        CompletableFuture<Widget> future = widgetApi.submitWidget(request);
+        Widget result = widgetApi.submitWidget(request).get();
+        log.info("Result: {}", result);
 
-        future.whenComplete((widget, error) -> {
-            if (error != null) {
-                log.error("Error in test", error);
-            } else {
-                log.info("Widget: {}", widget);
-            }
-
-            assertThat(error).isNull();
-            assertThat(widget).isEqualTo(response);
-        }).get();
-
-        RecordedRequest recordedRequest = server.takeRequest();
-
-        assertThat(body(recordedRequest)).isEqualTo(objectMapper.writeValueAsString(request));
+        assertThat(result).isEqualTo(response);
+        assertThat(body(server.takeRequest())).isEqualTo(objectMapper.writeValueAsString(request));
     }
 
     @Test(timeout = 15000)
     public void testPostWithBodySynchronous() throws Exception {
         Widget request = widget();
-
         Widget response = widget();
 
         server.enqueue(new MockResponse().setBody(objectMapper.writeValueAsString(response)));
 
-        Widget widget = widgetApi.submitWidgetSynchronous(request);
-        log.info("Widget: {}", widget);
-        assertThat(widget).isEqualTo(response);
+        Widget result = widgetApi.submitWidgetSynchronous(request);
+        log.info("Result: {}", result);
 
-        RecordedRequest recordedRequest = server.takeRequest();
-        assertThat(body(recordedRequest)).isEqualTo(objectMapper.writeValueAsString(request));
+        assertThat(result).isEqualTo(response);
+        assertThat(body(server.takeRequest())).isEqualTo(objectMapper.writeValueAsString(request));
     }
 
     @Test(timeout = 15000)
     public void testFindByName() throws Exception {
         List<Widget> list = Arrays.asList(widget(), widget(), widget());
 
-        String responseBody = objectMapper.writeValueAsString(list);
+        server.enqueue(new MockResponse().setBody(objectMapper.writeValueAsString(list)));
 
-        server.enqueue(new MockResponse().setBody(responseBody));
+        List<Widget> result = widgetApi.findByName("foo").get();
+        log.info("Result: {}", result);
 
-        List<Widget> results = widgetApi.findByName("foo").get();
-        log.info("Widgets: {}", results);
-        assertThat(results).isEqualTo(list);
+        assertThat(result).isEqualTo(list);
     }
 
     @Test(timeout = 15000)
     public void testFindByNameSynchronous() throws Exception {
         List<Widget> list = Arrays.asList(widget(), widget(), widget());
 
-        String responseBody = objectMapper.writeValueAsString(list);
+        server.enqueue(new MockResponse().setBody(objectMapper.writeValueAsString(list)));
 
-        server.enqueue(new MockResponse().setBody(responseBody));
+        List<Widget> result = widgetApi.findByNameSynchronous("foo");
+        log.info("Result: {}", result);
 
-        List<Widget> results = widgetApi.findByNameSynchronous("foo");
-        log.info("Widgets: {}", results);
-        assertThat(results).isEqualTo(list);
+        assertThat(result).isEqualTo(list);
     }
 
     @Test(timeout = 15000)
     public void testGet() throws Exception {
         Widget widget = widget();
 
-        String responseBody = objectMapper.writeValueAsString(widget);
+        server.enqueue(new MockResponse().setBody(objectMapper.writeValueAsString(widget)));
 
-        server.enqueue(new MockResponse().setBody(responseBody));
+        Optional<Widget> result = widgetApi.getWidget(widget.getUuid()).get();
+        log.info("Result: {}", result);
 
-        Optional<Widget> results = widgetApi.getWidget(widget.getUuid()).get();
-        log.info("Widgets: {}", results);
-        assertThat(results).contains(widget);
+        assertThat(result).contains(widget);
     }
 
     @Test(timeout = 15000)
@@ -168,9 +152,10 @@ public class BasicIntegrationTest {
 
         server.enqueue(new MockResponse().setBody(responseBody));
 
-        Optional<Widget> results = widgetApi.getWidgetSynchronous(widget.getUuid());
-        log.info("Widgets: {}", results);
-        assertThat(results).contains(widget);
+        Optional<Widget> result = widgetApi.getWidgetSynchronous(widget.getUuid());
+        log.info("Result: {}", result);
+
+        assertThat(result).contains(widget);
     }
 
     private String body(RecordedRequest recordedRequest) {
