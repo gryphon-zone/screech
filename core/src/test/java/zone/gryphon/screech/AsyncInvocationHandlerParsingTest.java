@@ -210,7 +210,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("foo"), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(fooHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(fooHandler.getPath()).isEqualTo("/foo");
         assertThat(fooHandler.getQueryParams()).isEmpty();
@@ -219,7 +219,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler barHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("bar", String.class), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(barHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(barHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(barHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(barHandler.getPath()).isEqualTo("/bar");
         assertThat(barHandler.getQueryParams()).containsExactly(new HttpParam("bar", "{bar}"));
@@ -227,7 +227,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler bazHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("baz", String.class), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(bazHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(bazHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(bazHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(bazHandler.getPath()).isEqualTo("/baz");
         assertThat(bazHandler.getQueryParams()).isEmpty();
@@ -235,7 +235,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler bibblyHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("bibbly", String.class), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(bibblyHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(bibblyHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(bibblyHandler.getHttpMethod()).isEqualTo("POST");
         assertThat(bibblyHandler.getPath()).isEqualTo("/bibbly");
         assertThat(bibblyHandler.getQueryParams()).isEmpty();
@@ -256,7 +256,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(ClassLevelHeader.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(fooHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(fooHandler.getPath()).isEqualTo("/foo");
         assertThat(fooHandler.getQueryParams()).isEmpty();
@@ -278,7 +278,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderCombinations.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(fooHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(fooHandler.getPath()).isEqualTo("/foo");
         assertThat(fooHandler.getQueryParams()).isEmpty();
@@ -300,7 +300,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(MultipleHeaders.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(fooHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(fooHandler.getPath()).isEqualTo("/foo");
         assertThat(fooHandler.getQueryParams()).isEmpty();
@@ -323,7 +323,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderOverrides.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(fooHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(fooHandler.getPath()).isEqualTo("/foo");
         assertThat(fooHandler.getQueryParams()).isEmpty();
@@ -347,7 +347,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderOrder.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(fooHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(fooHandler.getPath()).isEqualTo("/foo");
         assertThat(fooHandler.getQueryParams()).isEmpty();
@@ -371,7 +371,7 @@ public class AsyncInvocationHandlerParsingTest {
 
         AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(MultipleQueryParams.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
 
-        assertThat(fooHandler.getActualReturnType()).isEqualTo(String.class);
+        assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
         assertThat(fooHandler.getPath()).isEqualTo("/foo");
         assertThat(fooHandler.getQueryParams()).containsExactly(

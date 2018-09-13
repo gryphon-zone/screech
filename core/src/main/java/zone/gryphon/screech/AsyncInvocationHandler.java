@@ -37,6 +37,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AsyncInvocationHandler implements InvocationHandler {
 
+    private static final Set<Type> WRAPPER_TYPES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+       CompletableFuture.class,
+       Optional.class
+    )));
+
     static AsyncInvocationHandler from(
             Method method,
             RequestEncoder requestEncoder,
@@ -47,9 +52,6 @@ public class AsyncInvocationHandler implements InvocationHandler {
             Target target) {
         return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
     }
-
-    @Getter(AccessLevel.PROTECTED)
-    private final Class<?> actualReturnType;
 
     @Getter(AccessLevel.PROTECTED)
     private final Type effectiveReturnType;
@@ -71,6 +73,10 @@ public class AsyncInvocationHandler implements InvocationHandler {
     private final Function<Object[], Object> bodyFunction;
 
     private final String methodKey;
+
+    private final boolean isAsyncResponseType;
+
+    private final boolean isOptionalResponseType;
 
     // passed in //
 
@@ -107,9 +113,11 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         this.client = client;
 
-        this.actualReturnType = method.getReturnType();
+        this.effectiveReturnType = parseReturnType(method.getGenericReturnType());
 
-        this.effectiveReturnType = parseReturnType(method);
+        this.isAsyncResponseType = method.getReturnType().isAssignableFrom(CompletableFuture.class);
+
+        this.isOptionalResponseType = isOptionalReturnType(method.getGenericReturnType());
 
         this.methodKey = Util.toString(method);
 
@@ -136,6 +144,23 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     }
 
+    private boolean isOptionalReturnType(Type genericReturnType) {
+
+        if (genericReturnType instanceof ParameterizedType) {
+            ParameterizedType type = ((ParameterizedType) genericReturnType);
+
+            if (Optional.class.equals(type.getRawType())) {
+                return true;
+            }
+
+            if (isAsyncResponseType) {
+                return isOptionalReturnType(type.getActualTypeArguments()[0]);
+            }
+        }
+
+        return false;
+    }
+
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         CompletableFuture<Response<?>> response = new CompletableFuture<>();
@@ -154,7 +179,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             }
         });
 
-        if (actualReturnType.isAssignableFrom(CompletableFuture.class)) {
+        if (isAsyncResponseType) {
             return responseUnwrapped;
         } else {
             try {
@@ -165,13 +190,17 @@ public class AsyncInvocationHandler implements InvocationHandler {
         }
     }
 
-    private Type parseReturnType(Method method) {
+    private Type parseReturnType(Type type) {
 
-        if (CompletableFuture.class.equals(method.getReturnType())) {
-            return ((ParameterizedType) method.getGenericReturnType()).getActualTypeArguments()[0];
-        } else {
-            return method.getReturnType();
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+
+            if (WRAPPER_TYPES.contains(parameterizedType.getRawType())) {
+                return parseReturnType(parameterizedType.getActualTypeArguments()[0]);
+            }
         }
+
+        return type;
     }
 
     private Function<Object[], Object> setupBodyFunction(Method method) {
@@ -523,7 +552,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             @Override
             public void onSuccess(Object result) {
                 Response<?> response = Response.builder()
-                        .entity(result)
+                        .entity(isOptionalResponseType ? Optional.ofNullable(result) : result)
                         .build();
 
                 callback.onSuccess(response);
