@@ -15,22 +15,23 @@
  *
  */
 
-package zone.gryphon.screech;
+package zone.gryphon.screech.exception;
 
-import zone.gryphon.screech.exception.ScreechException;
-import zone.gryphon.screech.model.Response;
+import lombok.Getter;
+import lombok.NonNull;
 import zone.gryphon.screech.model.SerializedResponse;
 
-public interface ErrorDecoder {
+@Getter
+public class ScreechException extends RuntimeException {
 
-    void decode(SerializedResponse response, Callback<Response<?>> callback);
+    private final int status;
 
-    class DefaultErrorDecoder implements ErrorDecoder {
-
-        @Override
-        public void decode(SerializedResponse response, Callback<Response<?>> callback) {
-            callback.onError(ScreechException.from(response));
-        }
+    protected ScreechException(String message, int status) {
+        super(message);
+        this.status = status;
     }
 
+    public static ScreechException from(@NonNull SerializedResponse response) {
+        return new ScreechException("Failed to read response", response.getStatus());
+    }
 }
