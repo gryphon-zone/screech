@@ -17,20 +17,28 @@
 
 package zone.gryphon.screech.jackson;
 
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.util.ByteBufferInputStream;
 
+import java.io.BufferedInputStream;
+import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
 public class JacksonDecoder implements ResponseDecoder {
+
+    private static final Executor threadpool = Executors.newCachedThreadPool();
 
     private final ObjectMapper objectMapper;
 
@@ -57,14 +65,24 @@ public class JacksonDecoder implements ResponseDecoder {
 
             ByteBuffer buffer = response.getResponseBody().getBuffer();
 
-            // if response is backed by an array, use it directly
-            if (buffer.hasArray()) {
-                callback.onSuccess(objectMapper.readValue(buffer.array(), objectMapper.constructType(type)));
-            } else {
-                callback.onError(new RuntimeException("Non heap byte buffers not yet supported"));
-            }
+            JavaType javaType = objectMapper.constructType(type);
 
-        } catch (Exception e) {
+            // if response is backed by an array, use it directly. Since this is all in-memory, it should be non-blocking
+            if (buffer.hasArray()) {
+                callback.onSuccess(objectMapper.readValue(buffer.array(), javaType));
+            } else {
+                // since the buffer isn't backed by the heap, reading it may involve blocking IO to read data from
+                // disk. This means that in order to avoid blocking the calling thread, we have to run the
+                // deserialization in a background thread.
+                threadpool.execute(() -> {
+                    try (InputStream stream = new BufferedInputStream(new ByteBufferInputStream(buffer))) {
+                        callback.onSuccess(objectMapper.readValue(stream, javaType));
+                    } catch (Throwable e) {
+                        callback.onError(e);
+                    }
+                });
+            }
+        } catch (Throwable e) {
             callback.onError(e);
         }
     }
