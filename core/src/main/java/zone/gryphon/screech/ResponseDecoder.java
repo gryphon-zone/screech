@@ -17,12 +17,14 @@
 
 package zone.gryphon.screech;
 
+import zone.gryphon.screech.model.ResponseBody;
 import zone.gryphon.screech.model.SerializedResponse;
 
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public interface ResponseDecoder {
 
@@ -43,22 +45,23 @@ public interface ResponseDecoder {
                 return;
             }
 
+            ByteBuffer responseBody = response.getResponseBody().getBuffer();
+
             if (byte[].class.equals(type)) {
-                callback.onSuccess(response.getResponseBody().getBody().array());
+                callback.onSuccess(responseBody.array());
                 return;
             }
 
             if (ByteBuffer.class.equals(type)) {
-                callback.onSuccess(response.getResponseBody().getBody());
+                callback.onSuccess(responseBody);
                 return;
             }
 
             try {
-                callback.onSuccess(new String(response.getResponseBody().getBody().array(), Optional.ofNullable(response.getResponseBody().getEncoding()).orElse(StandardCharsets.UTF_8.name())));
+                callback.onSuccess(new String(responseBody.array(), Optional.ofNullable(response.getResponseBody().getEncoding()).orElse(UTF_8.name())));
             } catch (Exception e) {
-                throw new IllegalStateException("Unknown encoding " + response.getResponseBody().getEncoding());
+                callback.onError(new IllegalArgumentException("Unknown encoding " + response.getResponseBody().getEncoding(), e));
             }
         }
-
     }
 }

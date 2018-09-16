@@ -55,7 +55,7 @@ public class JacksonDecoder implements ResponseDecoder {
                 return;
             }
 
-            ByteBuffer buffer = response.getResponseBody().getBody();
+            ByteBuffer buffer = response.getResponseBody().getBuffer();
 
             // if response is backed by an array, use it directly
             if (buffer.hasArray()) {

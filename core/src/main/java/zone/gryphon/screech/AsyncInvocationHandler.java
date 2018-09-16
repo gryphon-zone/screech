@@ -180,14 +180,12 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        CompletableFuture<Response<?>> response = new CompletableFuture<>();
-
-        CompletableFuture<?> responseUnwrapped = response.thenApply(Response::getEntity);
+        CompletableFuture<Object> response = new CompletableFuture<>();
 
         setUpInterceptors(0, buildRequest(args), new Callback<Response<?>>() {
             @Override
             public void onSuccess(Response<?> result) {
-                response.complete(result);
+                response.complete(result == null ? null : result.getEntity());
             }
 
             @Override
@@ -197,10 +195,10 @@ public class AsyncInvocationHandler implements InvocationHandler {
         });
 
         if (isAsyncResponseType) {
-            return responseUnwrapped;
+            return response;
         } else {
             try {
-                return responseUnwrapped.get();
+                return response.get();
             } catch (Throwable e) {
                 throw Util.unwrap(e);
             }
@@ -491,6 +489,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 setUpInterceptors(index + 1, modifiedRequest, new Callback<Response<?>>() {
                     @Override
                     public void onSuccess(Response<?> result) {
+                        // noinspection unchecked
                         responseCallback.onSuccess((Response) result);
                     }
 

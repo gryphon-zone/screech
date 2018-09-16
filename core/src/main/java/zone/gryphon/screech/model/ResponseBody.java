@@ -29,13 +29,13 @@ public class ResponseBody {
 
     public static ResponseBody from(@NonNull ByteBuffer buffer, String contentType, String encoding) {
         return ResponseBody.builder()
-                .body(buffer)
+                .buffer(buffer)
                 .contentType(contentType)
                 .encoding(encoding)
                 .build();
     }
 
-    private final ByteBuffer body;
+    private final ByteBuffer buffer;
 
     private final String contentType;
 
