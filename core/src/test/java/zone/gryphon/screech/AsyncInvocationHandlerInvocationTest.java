@@ -110,7 +110,7 @@ public class AsyncInvocationHandlerInvocationTest {
                 .responseBody(ResponseBody.builder()
                         .contentType("application/json")
                         .encoding(UTF_8.name())
-                        .body(ByteBuffer.wrap("Hello world!".getBytes(UTF_8)))
+                        .buffer(ByteBuffer.wrap("Hello world!".getBytes(UTF_8)))
                         .build())
                 .build();
 

@@ -55,7 +55,7 @@ public class InstanceBuilderTest {
             } else {
                 log.info("No request body");
             }
-            callback.onSuccess(SerializedResponse.builder().responseBody(ResponseBody.builder().body(ByteBuffer.wrap("Hello world!".getBytes())).build()).build());
+            callback.onSuccess(SerializedResponse.builder().responseBody(ResponseBody.builder().buffer(ByteBuffer.wrap("Hello world!".getBytes())).build()).build());
         }
     }
 
