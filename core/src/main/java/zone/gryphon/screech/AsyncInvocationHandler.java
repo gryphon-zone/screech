@@ -21,6 +21,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import zone.gryphon.screech.exception.ScreechException;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.Request;
 import zone.gryphon.screech.model.RequestBody;
@@ -224,7 +225,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             try {
                 return response.get();
             } catch (Throwable e) {
-                throw Util.unwrap(e);
+                throw ScreechException.handle(e);
             }
         }
     }

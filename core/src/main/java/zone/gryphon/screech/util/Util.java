@@ -72,16 +72,4 @@ public final class Util {
         return builder.toString();
     }
 
-    public Throwable unwrap(Throwable e) {
-        if (e == null) {
-            return null;
-        }
-
-        if (e instanceof ExecutionException && e.getCause() != null) {
-            return e.getCause();
-        }
-
-        return e;
-    }
-
 }
