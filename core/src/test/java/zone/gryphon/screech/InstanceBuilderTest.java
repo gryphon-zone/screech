@@ -60,7 +60,6 @@ public class InstanceBuilderTest {
 
     @Test
     public void name() throws Exception {
-
         TestInterface test = new InstanceBuilder(new MockClient()).build(TestInterface.class, new HardCodedTarget("http://localhost"));
 
         log.info("Result of sync method: {}", test.sync("foobar"));
