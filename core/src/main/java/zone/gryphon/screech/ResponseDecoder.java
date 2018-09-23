@@ -17,7 +17,6 @@
 
 package zone.gryphon.screech;
 
-import zone.gryphon.screech.model.ResponseBody;
 import zone.gryphon.screech.model.SerializedResponse;
 
 import java.lang.reflect.Type;

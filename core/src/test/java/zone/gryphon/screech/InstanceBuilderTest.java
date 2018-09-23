@@ -26,7 +26,6 @@ import zone.gryphon.screech.model.SerializedResponse;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import java.util.function.Consumer;
 
 @Slf4j
 public class InstanceBuilderTest {
@@ -38,7 +37,7 @@ public class InstanceBuilderTest {
         CompletableFuture<String> async(@Param("foo") String foo, String body);
 
         @RequestLine("GET /target?foo={param}")
-        Future<String> asyncFuture(@Param("foo") String foo);
+        Future<String> asyncFuture(@Param("param") String foo);
 
         @RequestLine("GET /target")
         String sync(@Param("foo") String foo);
@@ -62,7 +61,7 @@ public class InstanceBuilderTest {
     @Test
     public void name() throws Exception {
 
-        TestInterface test =  new InstanceBuilder(new MockClient()).build(TestInterface.class, new HardCodedTarget("http://localhost"));
+        TestInterface test = new InstanceBuilder(new MockClient()).build(TestInterface.class, new HardCodedTarget("http://localhost"));
 
         log.info("Result of sync method: {}", test.sync("foobar"));
 

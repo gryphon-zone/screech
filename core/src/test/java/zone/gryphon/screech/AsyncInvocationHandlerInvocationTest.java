@@ -33,10 +33,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -115,7 +113,7 @@ public class AsyncInvocationHandlerInvocationTest {
                 .build();
 
         doAnswer(invocation -> {
-            ((Callback)invocation.getArguments()[1]).onSuccess(response);
+            ((Callback) invocation.getArguments()[1]).onSuccess(response);
             return null;
         }).when(client).request(any(), any());
 

@@ -27,6 +27,8 @@ import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.SerializedRequest;
 import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.util.StringInterpolator;
+import zone.gryphon.screech.util.StringInterpolatorApi;
 import zone.gryphon.screech.util.Util;
 
 import java.lang.annotation.Annotation;
@@ -55,8 +57,8 @@ import java.util.stream.Collectors;
 public class AsyncInvocationHandler implements InvocationHandler {
 
     private static final Set<Type> WRAPPER_TYPES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-       CompletableFuture.class,
-       Optional.class
+            CompletableFuture.class,
+            Optional.class
     )));
 
     static AsyncInvocationHandler from(
@@ -88,6 +90,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
     private final Function<Object[], Map<String, String>> parameterFunction;
 
     private final Function<Object[], Object> bodyFunction;
+
+    private final Map<String, StringInterpolatorApi> interpolatorCache;
 
     private final String methodKey;
 
@@ -159,6 +163,26 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         this.bodyFunction = setupBodyFunction(method);
 
+        this.interpolatorCache = buildInterpolatorCache(this.path, this.queryParams, this.headerParams);
+
+    }
+
+    private Map<String, StringInterpolatorApi> buildInterpolatorCache(String path, List<HttpParam> queryParams, List<HttpParam> headerParams) {
+        Map<String, StringInterpolatorApi> out = new HashMap<>();
+
+        out.put(path, StringInterpolator.of(path));
+
+        queryParams.forEach(param -> {
+            out.put(param.getKey(), StringInterpolator.of(param.getKey()));
+            out.put(param.getValue(), StringInterpolator.of(param.getValue()));
+        });
+
+        headerParams.forEach(param -> {
+            out.put(param.getKey(), StringInterpolator.of(param.getKey()));
+            out.put(param.getValue(), StringInterpolator.of(param.getValue()));
+        });
+
+        return out;
     }
 
     private boolean isOptionalReturnType(Type genericReturnType) {
@@ -440,12 +464,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 .build();
     }
 
-    private URI interpolateUri(String uri, Map<String, String> templateParams) {
-        for (Map.Entry<String, String> stringStringEntry : templateParams.entrySet()) {
-            uri = uri.replace("{" + stringStringEntry.getKey() + "}", stringStringEntry.getValue());
-        }
-
-        return URI.create(uri);
+    private URI interpolateUri(String uri, Map<String, String> templateParameters) {
+        return URI.create(getInterpolator(uri).interpolate(templateParameters));
     }
 
     private List<HttpParam> interpolateHttpParams(List<HttpParam> params, Map<String, String> templateParams) {
@@ -454,17 +474,21 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 .collect(Collectors.toList());
     }
 
-    private HttpParam interpolateSimgleHttpParam(HttpParam queryParam, Map<String, String> templateParams) {
-        for (Map.Entry<String, String> stringStringEntry : templateParams.entrySet()) {
-            String key = '{' + stringStringEntry.getKey() + '}';
+    private HttpParam interpolateSimgleHttpParam(HttpParam param, Map<String, String> templateParams) {
 
-            queryParam = HttpParam.builder()
-                    .key(queryParam.getKey().replace(key, stringStringEntry.getValue()))
-                    .value(queryParam.getValue().replace(key, stringStringEntry.getValue()))
+        if (StringInterpolator.requiresInterpolation(param.getKey()) || StringInterpolator.requiresInterpolation(param.getValue())) {
+            return HttpParam.builder()
+                    .key(getInterpolator(param.getKey()).interpolate(templateParams))
+                    .value(getInterpolator(param.getValue()).interpolate(templateParams))
                     .build();
         }
 
-        return queryParam;
+        // if neither the key nor the value requires interpolation, we can return it as-is since it's immutable
+        return param;
+    }
+
+    private StringInterpolatorApi getInterpolator(String input) {
+        return interpolatorCache.containsKey(input) ? interpolatorCache.get(input) : StringInterpolator.of(input);
     }
 
     private String parseContentType(List<HttpParam> headers) {
