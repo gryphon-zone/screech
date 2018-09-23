@@ -21,6 +21,8 @@ import lombok.Getter;
 import lombok.NonNull;
 import zone.gryphon.screech.model.SerializedResponse;
 
+import java.util.concurrent.ExecutionException;
+
 @Getter
 public class ScreechException extends RuntimeException {
 
@@ -31,7 +33,29 @@ public class ScreechException extends RuntimeException {
         this.status = status;
     }
 
+    protected ScreechException(String message, Throwable t) {
+        super(message, t);
+        this.status = 0;
+    }
+
     public static ScreechException from(@NonNull SerializedResponse response) {
         return new ScreechException("Failed to read response", response.getStatus());
+    }
+
+    public static ScreechException handle(Throwable e) {
+
+        if (e == null) {
+            return null;
+        }
+
+        if (e instanceof ScreechException) {
+            return (ScreechException) e;
+        }
+
+        if (e instanceof ExecutionException && e.getCause() != null) {
+            return handle(e.getCause());
+        }
+
+        return new ScreechException("Unexpected exception", e);
     }
 }
