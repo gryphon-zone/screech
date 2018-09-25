@@ -17,40 +17,57 @@
 
 package zone.gryphon.screech.util;
 
+import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.Client;
+import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 
-import java.nio.ByteBuffer;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.Optional;
+import java.util.function.BiFunction;
 
+@Slf4j
 public class ClientCallbackImpl implements Client.ClientCallback {
 
     private final Callback<Response<?>> callback;
 
-    private final Function<ResponseHeaders, Consumer<ByteBuffer>> factory;
+    private final BiFunction<ResponseHeaders, Callback<Response<?>>, ResponseDecoder> factory;
 
-    public ClientCallbackImpl(Callback<Response<?>> callback, Function<ResponseHeaders, Consumer<ByteBuffer>> factory) {
+    private volatile boolean terminalOperationCalled = false;
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    private volatile Optional<ResponseDecoder> consumer = Optional.empty();
+
+    public ClientCallbackImpl(Callback<Response<?>> callback, BiFunction<ResponseHeaders, Callback<Response<?>>, ResponseDecoder> factory) {
         this.callback = callback;
         this.factory = factory;
     }
 
     @Override
     public Client.ContentCallback onHeaders(ResponseHeaders responseHeaders) {
-        Consumer<ByteBuffer> consumer = factory.apply(responseHeaders);
+        consumer = Optional.ofNullable(factory.apply(responseHeaders, callback));
 
-        return null;
+        return content -> {
+
+            if (terminalOperationCalled) {
+                log.error("Client.ContentCallback.onContent() called after completing request!");
+                return;
+            }
+
+            consumer.ifPresent(c -> c.onContent(content));
+        };
     }
 
     @Override
     public void abort(Throwable t) {
-
+        terminalOperationCalled = true;
+        consumer.ifPresent(ResponseDecoder::abort);
     }
 
     @Override
     public void complete() {
-
+        terminalOperationCalled = true;
+        consumer.ifPresent(ResponseDecoder::onComplete);
     }
 }

@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 @Slf4j
-@Ignore
 public class InstanceBuilderTest {
 
     public interface TestInterface {

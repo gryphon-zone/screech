@@ -28,6 +28,7 @@ import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.util.ClientCallbackImpl;
 import zone.gryphon.screech.util.StringInterpolator;
 import zone.gryphon.screech.util.StringInterpolatorApi;
 import zone.gryphon.screech.util.Util;
@@ -560,55 +561,22 @@ public class AsyncInvocationHandler implements InvocationHandler {
     }
 
     private void doRequest(ByteBuffer buffer, Request request, Callback<Response<?>> callback) {
-
         //noinspection OptionalUsedAsFieldOrParameterType
-        wrapCallToUserCode(callback, () -> client.request(convertRequestIntoSerializedRequest(buffer, request), new Client.ClientCallback() {
-
-            private volatile boolean terminalOperationCalled = false;
-
-            private volatile Optional<ResponseDecoder> consumer = Optional.empty();
-
-            @Override
-            public Client.ContentCallback onHeaders(ResponseHeaders responseHeaders) {
-                consumer = Optional.ofNullable(decode(responseHeaders, callback));
-
-                return content -> {
-
-                    if (terminalOperationCalled) {
-                        log.error("Client.ContentCallback.onContent() called after completing request!");
-                        return;
-                    }
-
-                    consumer.ifPresent(c -> c.onContent(content));
-                };
-            }
-
-            @Override
-            public void abort(Throwable t) {
-                terminalOperationCalled = true;
-                consumer.ifPresent(ResponseDecoder::abort);
-            }
-
-            @Override
-            public void complete() {
-                terminalOperationCalled = true;
-                consumer.ifPresent(ResponseDecoder::onComplete);
-            }
-        }));
+        wrapCallToUserCode(callback, () -> client.request(convertRequestIntoSerializedRequest(buffer, request), new ClientCallbackImpl(callback, this::createDecoder)));
     }
 
-    private ResponseDecoder decode(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
+    private ResponseDecoder createDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
         if (clientResponse == null) {
             callback.onError(new NullPointerException(String.format("Client '%s' returned null ResponseHeaders", client.getClass().getSimpleName())));
             return null;
         } else if (clientResponse.getStatus() >= 300) {
-            return handleNonSuccessStatus(clientResponse, callback);
+            return createFailureDecoder(clientResponse, callback);
         } else {
-            return handleSuccessStatus(clientResponse, callback);
+            return createSuccessDecoder(clientResponse, callback);
         }
     }
 
-    private ResponseDecoder handleNonSuccessStatus(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
+    private ResponseDecoder createFailureDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
         return errorDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
 
             @Override
@@ -628,7 +596,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
         });
     }
 
-    private ResponseDecoder handleSuccessStatus(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
+    private ResponseDecoder createSuccessDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
         return responseDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
 
             @Override
