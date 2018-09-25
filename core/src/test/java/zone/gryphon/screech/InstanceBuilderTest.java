@@ -24,6 +24,7 @@ import zone.gryphon.screech.model.SerializedRequest;
 import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
@@ -56,7 +57,13 @@ public class InstanceBuilderTest {
                 log.info("No request body");
             }
 
-            callback.onHeaders(ResponseHeaders.builder().build()).onContent(ByteBuffer.wrap("Hello world!".getBytes()));
+            ContentCallback contentCallback = callback.onHeaders(ResponseHeaders.builder().build());
+
+            // call with individual bytes to test multiple invocations of onContent
+            for (byte b : "Hello world!".getBytes(StandardCharsets.UTF_8)) {
+                contentCallback.onContent(ByteBuffer.wrap(new byte[]{b}));
+            }
+
             callback.complete();
         }
     }
