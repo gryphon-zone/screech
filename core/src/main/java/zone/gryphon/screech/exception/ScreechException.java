@@ -19,7 +19,7 @@ package zone.gryphon.screech.exception;
 
 import lombok.Getter;
 import lombok.NonNull;
-import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.util.concurrent.ExecutionException;
 
@@ -38,7 +38,7 @@ public class ScreechException extends RuntimeException {
         this.status = 0;
     }
 
-    public static ScreechException from(@NonNull SerializedResponse response) {
+    public static ScreechException from(@NonNull ResponseHeaders response) {
         return new ScreechException("Failed to read response", response.getStatus());
     }
 

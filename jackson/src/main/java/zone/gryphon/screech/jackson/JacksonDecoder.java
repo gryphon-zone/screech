@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.ResponseDecoder;
-import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.util.ByteBufferInputStream;
 
 import java.io.BufferedInputStream;
@@ -55,7 +55,7 @@ public class JacksonDecoder implements ResponseDecoder {
     }
 
     @Override
-    public void decode(SerializedResponse response, Type type, Callback<Object> callback) {
+    public void decode(ResponseHeaders response, Type type, Callback<Object> callback) {
         try {
 
             if (response.getResponseBody() == null) {

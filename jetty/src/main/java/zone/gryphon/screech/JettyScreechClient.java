@@ -17,20 +17,24 @@
 
 package zone.gryphon.screech;
 
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.client.api.Result;
 import org.eclipse.jetty.client.util.BufferingResponseListener;
 import org.eclipse.jetty.client.util.ByteBufferContentProvider;
+import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.ResponseBody;
+import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.model.SerializedResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
+@Slf4j
 public class JettyScreechClient implements Client, Closeable {
 
     private static HttpClient createAndConfigureClient() {
@@ -57,37 +61,48 @@ public class JettyScreechClient implements Client, Closeable {
     }
 
     @Override
-    public void request(SerializedRequest request, Callback<SerializedResponse> callback) {
-        convert(request).send(new BufferingResponseListener() {
+    public void request(SerializedRequest request, Client.ClientCallback callback) {
+        convert(request).send(new Response.Listener.Adapter() {
+
+            private volatile ContentCallback contentCallback;
+
+            @Override
+            public void onHeaders(Response response) {
+                contentCallback = callback.onHeaders(convert(response));
+            }
+
+            @Override
+            public void onContent(Response response, ByteBuffer content) {
+
+                if (contentCallback == null) {
+                    log.error("onContent() called before onHeaders()");
+                    return;
+                }
+
+                contentCallback.onContent(content);
+            }
 
             @Override
             public void onComplete(Result result) {
-                try {
-                    callback.onSuccess(convert(result, getContent(), getEncoding(), getMediaType()));
-                } catch (Throwable e) {
-                    callback.onError(e);
+
+                if (result.getFailure() != null) {
+                    callback.abort(result.getFailure());
+                    return;
                 }
+
+                callback.complete();
             }
         });
     }
 
-    private SerializedResponse convert(Result result, byte[] body, String encoding, String contentType) throws Throwable {
+    private ResponseHeaders convert(Response response) {
+        List<HttpParam> headers = response.getHeaders().stream()
+                .map(header -> new HttpParam(header.getName(), header.getValue()))
+                .collect(Collectors.toList());
 
-        // does not include 4xx/5xx status codes, indicates something like a read timeout, connection reset, etc...
-        if (result.isFailed()) {
-            throw result.getFailure();
-        }
-
-        ResponseBody responseBody = ResponseBody.from(ByteBuffer.wrap(body), contentType, encoding);
-
-        Map<String, Collection<String>> headers = new HashMap<>();
-
-        result.getResponse().getHeaders().forEach(header -> headers.computeIfAbsent(header.getName(), ignored -> new ArrayList<>()).add(header.getValue()));
-
-        return SerializedResponse.builder()
-                .status(result.getResponse().getStatus())
-                .responseBody(responseBody)
-                .headers(Collections.unmodifiableList(Collections.emptyList()))
+        return ResponseHeaders.builder()
+                .status(response.getStatus())
+                .headers(headers)
                 .build();
     }
 

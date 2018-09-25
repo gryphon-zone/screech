@@ -20,7 +20,10 @@ package zone.gryphon.screech;
 
 import org.junit.Test;
 import zone.gryphon.screech.model.HttpParam;
+import zone.gryphon.screech.model.ResponseHeaders;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.List;
 
@@ -37,11 +40,29 @@ public class AsyncInvocationHandlerParsingTest {
 
     private ResponseDecoder responseDecoder = mock(ResponseDecoder.class);
 
-    private ErrorDecoder errorDecoder = mock(ErrorDecoder.class);
+    private ResponseDecoder errorDecoder = mock(ResponseDecoder.class);
+
+    private ResponseDecoderFactory errorDecoderFactory = new ResponseDecoderFactory() {
+        @Override
+        public <T> ResponseDecoder create(ResponseHeaders response, Type type, Callback<T> callback) {
+            return errorDecoder;
+        }
+    };
+
+    private ResponseDecoderFactory dcoderFactory = new ResponseDecoderFactory() {
+        @Override
+        public <T> ResponseDecoder create(ResponseHeaders response, Type type, Callback<T> callback) {
+            return errorDecoder;
+        }
+    };
 
     private Client client = mock(Client.class);
 
     private Target target = mock(Target.class);
+
+    private AsyncInvocationHandler create(Method method) {
+        return AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, dcoderFactory, errorDecoderFactory, client, target);
+    }
 
     public interface NoAnnotation {
 
@@ -54,7 +75,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testNoAnnotation() {
 
         try {
-            AsyncInvocationHandler.from(NoAnnotation.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(NoAnnotation.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalAccessException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("method is not annotated with RequestLine");
@@ -73,7 +94,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testNoRequestLine() {
 
         try {
-            AsyncInvocationHandler.from(NoRequestLine.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(NoRequestLine.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalAccessException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("no HTTP method defined");
@@ -91,7 +112,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testNoPath() {
 
         try {
-            AsyncInvocationHandler.from(NoPath.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(NoPath.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalAccessException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("no URL path defined");
@@ -109,7 +130,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testNoVerb() {
 
         try {
-            AsyncInvocationHandler.from(NoVerb.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(NoVerb.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalAccessException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("no HTTP method defined");
@@ -128,7 +149,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testIllegalMethodHeader() {
 
         try {
-            AsyncInvocationHandler.from(IllegalMethodHeader.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(IllegalMethodHeader.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalAccessException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("Failed to parse valid header from value \"invalid header\" on method");
@@ -147,7 +168,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testIllegalClassHeader() {
 
         try {
-            AsyncInvocationHandler.from(IllegalClassHeader.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(IllegalClassHeader.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalAccessException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("Failed to parse valid header from value \"invalid header\" on method");
@@ -166,7 +187,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testMultipleBodyParams() {
 
         try {
-            AsyncInvocationHandler.from(MultipleBodyParams.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(MultipleBodyParams.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("cannot have more than one body param");
@@ -199,7 +220,7 @@ public class AsyncInvocationHandlerParsingTest {
     public void testIllegalExpander() {
 
         try {
-            AsyncInvocationHandler.from(IllegalExpander.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            create(IllegalExpander.class.getDeclaredMethods()[0]);
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).containsSubsequence("Failed to create expander");
@@ -225,7 +246,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testSimpleClient() throws Exception {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("foo"), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler = create(SimpleClient.class.getDeclaredMethod("foo"));
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
@@ -234,7 +255,7 @@ public class AsyncInvocationHandlerParsingTest {
         assertThat(fooHandler.getHeaderParams()).isEmpty();
 
 
-        AsyncInvocationHandler barHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("bar", String.class), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler barHandler = create(SimpleClient.class.getDeclaredMethod("bar", String.class));
 
         assertThat(barHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(barHandler.getHttpMethod()).isEqualTo("GET");
@@ -242,7 +263,7 @@ public class AsyncInvocationHandlerParsingTest {
         assertThat(barHandler.getQueryParams()).containsExactly(new HttpParam("bar", "{bar}"));
         assertThat(barHandler.getHeaderParams()).isEmpty();
 
-        AsyncInvocationHandler bazHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("baz", String.class), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler bazHandler = create(SimpleClient.class.getDeclaredMethod("baz", String.class));
 
         assertThat(bazHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(bazHandler.getHttpMethod()).isEqualTo("GET");
@@ -250,7 +271,7 @@ public class AsyncInvocationHandlerParsingTest {
         assertThat(bazHandler.getQueryParams()).isEmpty();
         assertThat(bazHandler.getHeaderParams()).containsExactly(new HttpParam("X-Header", "{baz}"));
 
-        AsyncInvocationHandler bibblyHandler = AsyncInvocationHandler.from(SimpleClient.class.getDeclaredMethod("bibbly", String.class), requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler bibblyHandler = create(SimpleClient.class.getDeclaredMethod("bibbly", String.class));
 
         assertThat(bibblyHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(bibblyHandler.getHttpMethod()).isEqualTo("POST");
@@ -271,7 +292,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testClassLevelHeader() {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(ClassLevelHeader.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler = create(ClassLevelHeader.class.getDeclaredMethods()[0]);
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
@@ -293,7 +314,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testHeaderCombinations() {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderCombinations.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler = create(HeaderCombinations.class.getDeclaredMethods()[0]);
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
@@ -315,7 +336,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testMultipleHeaders() {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(MultipleHeaders.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler =create(MultipleHeaders.class.getDeclaredMethods()[0]);
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
@@ -338,7 +359,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testHeaderOverrides() {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderOverrides.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler = create(HeaderOverrides.class.getDeclaredMethods()[0]);
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
@@ -362,7 +383,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testHeaderOrder() {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(HeaderOrder.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler = create(HeaderOrder.class.getDeclaredMethods()[0]);
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");
@@ -386,7 +407,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testMultipleQueryParams() {
 
-        AsyncInvocationHandler fooHandler = AsyncInvocationHandler.from(MultipleQueryParams.class.getDeclaredMethods()[0], requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+        AsyncInvocationHandler fooHandler = create(MultipleQueryParams.class.getDeclaredMethods()[0]);
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");

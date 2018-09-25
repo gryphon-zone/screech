@@ -24,9 +24,7 @@ import java.util.List;
 
 @Value
 @Builder(toBuilder = true)
-public class SerializedResponse {
-
-    private final ResponseBody responseBody;
+public class ResponseHeaders {
 
     private final List<HttpParam> headers;
 

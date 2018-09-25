@@ -18,23 +18,24 @@
 package zone.gryphon.screech;
 
 import lombok.extern.slf4j.Slf4j;
+import org.junit.Ignore;
 import org.junit.Test;
-import zone.gryphon.screech.model.ResponseBody;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 @Slf4j
+@Ignore
 public class InstanceBuilderTest {
 
     public interface TestInterface {
 
         @Header("Content-Type: application/json")
         @RequestLine("GET /target?foo={foo}&bar={foo}&baz={foo}")
-        CompletableFuture<String> async(@Param("foo") String foo, String body);
+        CompletableFuture<String> asyncCompletableFuture(@Param("foo") String foo, String body);
 
         @RequestLine("GET /target?foo={param}")
         Future<String> asyncFuture(@Param("param") String foo);
@@ -47,14 +48,17 @@ public class InstanceBuilderTest {
     private static class MockClient implements Client {
 
         @Override
-        public void request(SerializedRequest request, Callback<SerializedResponse> callback) {
+        public void request(SerializedRequest request, ClientCallback callback) {
             log.info("request: {}", request);
+
             if (request.getRequestBody() != null) {
                 log.info("request body: {}", new String(request.getRequestBody().getBody().array()));
             } else {
                 log.info("No request body");
             }
-            callback.onSuccess(SerializedResponse.builder().responseBody(ResponseBody.builder().buffer(ByteBuffer.wrap("Hello world!".getBytes())).build()).build());
+
+            callback.onHeaders(ResponseHeaders.builder().build()).onContent(ByteBuffer.wrap("Hello world!".getBytes()));
+            callback.complete();
         }
     }
 
@@ -64,8 +68,8 @@ public class InstanceBuilderTest {
 
         log.info("Result of sync method: {}", test.sync("foobar"));
 
-        log.info("Result of async method: {}", test.async("foobar", "asdfasdfasdfasdf").get());
+        log.info("Result of asyncCompletableFuture method: {}", test.asyncCompletableFuture("foobar", "asdfasdfasdfasdf").get());
 
-        log.info("Result of async future method: {}", test.asyncFuture("foobar").get());
+        log.info("Result of asyncFuture method: {}", test.asyncFuture("foobar").get());
     }
 }

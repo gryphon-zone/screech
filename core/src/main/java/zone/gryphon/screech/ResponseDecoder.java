@@ -17,50 +17,14 @@
 
 package zone.gryphon.screech;
 
-import zone.gryphon.screech.model.SerializedResponse;
-
-import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import java.util.Optional;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public interface ResponseDecoder {
 
-    void decode(SerializedResponse response, Type type, Callback<Object> callback);
+    void onContent(ByteBuffer content);
 
-    class StringResponseDecoder implements ResponseDecoder {
+    void onComplete();
 
-        @Override
-        public void decode(SerializedResponse response, Type type, Callback<Object> callback) {
+    void abort();
 
-            if (response.getStatus() == 404) {
-                callback.onSuccess(null);
-                return;
-            }
-
-            if (response.getResponseBody() == null) {
-                callback.onSuccess(null);
-                return;
-            }
-
-            ByteBuffer responseBody = response.getResponseBody().getBuffer();
-
-            if (byte[].class.equals(type)) {
-                callback.onSuccess(responseBody.array());
-                return;
-            }
-
-            if (ByteBuffer.class.equals(type)) {
-                callback.onSuccess(responseBody);
-                return;
-            }
-
-            try {
-                callback.onSuccess(new String(responseBody.array(), Optional.ofNullable(response.getResponseBody().getEncoding()).orElse(UTF_8.name())));
-            } catch (Exception e) {
-                callback.onError(new IllegalArgumentException("Unknown encoding " + response.getResponseBody().getEncoding(), e));
-            }
-        }
-    }
 }
