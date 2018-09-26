@@ -21,17 +21,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.client.api.Result;
-import org.eclipse.jetty.client.util.BufferingResponseListener;
 import org.eclipse.jetty.client.util.ByteBufferContentProvider;
 import zone.gryphon.screech.model.HttpParam;
-import zone.gryphon.screech.model.ResponseBody;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -73,7 +71,6 @@ public class JettyScreechClient implements Client, Closeable {
 
             @Override
             public void onContent(Response response, ByteBuffer content) {
-
                 if (contentCallback == null) {
                     log.error("onContent() called before onHeaders()");
                     return;
@@ -84,13 +81,11 @@ public class JettyScreechClient implements Client, Closeable {
 
             @Override
             public void onComplete(Result result) {
-
                 if (result.getFailure() != null) {
                     callback.abort(result.getFailure());
-                    return;
+                } else {
+                    callback.complete();
                 }
-
-                callback.complete();
             }
         });
     }

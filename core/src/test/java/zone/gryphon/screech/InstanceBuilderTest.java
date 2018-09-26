@@ -18,10 +18,9 @@
 package zone.gryphon.screech;
 
 import lombok.extern.slf4j.Slf4j;
-import org.junit.Ignore;
 import org.junit.Test;
-import zone.gryphon.screech.model.SerializedRequest;
 import zone.gryphon.screech.model.ResponseHeaders;
+import zone.gryphon.screech.model.SerializedRequest;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

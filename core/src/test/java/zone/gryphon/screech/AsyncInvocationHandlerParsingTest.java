@@ -44,14 +44,14 @@ public class AsyncInvocationHandlerParsingTest {
 
     private ResponseDecoderFactory errorDecoderFactory = new ResponseDecoderFactory() {
         @Override
-        public <T> ResponseDecoder create(ResponseHeaders response, Type type, Callback<T> callback) {
+        public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
             return errorDecoder;
         }
     };
 
     private ResponseDecoderFactory dcoderFactory = new ResponseDecoderFactory() {
         @Override
-        public <T> ResponseDecoder create(ResponseHeaders response, Type type, Callback<T> callback) {
+        public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
             return errorDecoder;
         }
     };
@@ -336,7 +336,7 @@ public class AsyncInvocationHandlerParsingTest {
     @Test
     public void testMultipleHeaders() {
 
-        AsyncInvocationHandler fooHandler =create(MultipleHeaders.class.getDeclaredMethods()[0]);
+        AsyncInvocationHandler fooHandler = create(MultipleHeaders.class.getDeclaredMethods()[0]);
 
         assertThat(fooHandler.getEffectiveReturnType()).isEqualTo(String.class);
         assertThat(fooHandler.getHttpMethod()).isEqualTo("GET");

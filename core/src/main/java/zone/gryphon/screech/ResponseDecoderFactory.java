@@ -17,7 +17,6 @@
 
 package zone.gryphon.screech;
 
-import zone.gryphon.screech.exception.ScreechException;
 import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.lang.reflect.Type;
@@ -27,12 +26,12 @@ import java.util.List;
 
 public interface ResponseDecoderFactory {
 
-    <T> ResponseDecoder create(ResponseHeaders response, Type type, Callback<T> callback);
+    ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback);
 
     class ErrorResponseDecoderFactory implements ResponseDecoderFactory {
 
         @Override
-        public <T> ResponseDecoder create(ResponseHeaders response, Type type, Callback<T> callback) {
+        public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
             return new ResponseDecoder() {
 
                 @Override
@@ -56,10 +55,10 @@ public interface ResponseDecoderFactory {
     class SuccessResponseDecoderFactory implements ResponseDecoderFactory {
 
         @Override
-        public <T> ResponseDecoder create(ResponseHeaders response, Type type, Callback<T> callback) {
+        public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
             return new ResponseDecoder() {
 
-                private final List<ByteBuffer> buffers= new ArrayList<>();
+                private final List<ByteBuffer> buffers = new ArrayList<>();
 
                 @Override
                 public void onContent(ByteBuffer content) {
@@ -74,7 +73,7 @@ public interface ResponseDecoderFactory {
                         buffer.put(byteBuffer);
                     }
 
-                    callback.onSuccess((T) new String(buffer.array()));
+                    callback.onSuccess(new String(buffer.array()));
                 }
 
                 @Override

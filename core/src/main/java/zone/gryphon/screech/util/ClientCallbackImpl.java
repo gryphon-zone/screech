@@ -63,6 +63,7 @@ public class ClientCallbackImpl implements Client.ClientCallback {
     public void abort(Throwable t) {
         terminalOperationCalled = true;
         consumer.ifPresent(ResponseDecoder::abort);
+        callback.onError(t);
     }
 
     @Override

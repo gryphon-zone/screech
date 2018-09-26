@@ -17,73 +17,95 @@
 
 package zone.gryphon.screech.jackson;
 
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.ResponseDecoder;
+import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.ResponseHeaders;
-import zone.gryphon.screech.util.ByteBufferInputStream;
 
-import java.io.BufferedInputStream;
-import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Objects;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.Optional;
 
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-
+@Slf4j
 public class JacksonDecoder implements ResponseDecoder {
-
-    private static final Executor threadpool = Executors.newCachedThreadPool();
 
     private final ObjectMapper objectMapper;
 
-    public JacksonDecoder(Module... modules) {
-        this(Arrays.asList(modules));
-    }
+    private final ResponseHeaders responseHeaders;
 
-    public JacksonDecoder(Iterable<Module> modules) {
-        this(new ObjectMapper().disable(FAIL_ON_UNKNOWN_PROPERTIES).registerModules(modules));
-    }
+    private final Type type;
 
-    public JacksonDecoder(ObjectMapper objectMapper) {
+    private final Callback<Object> callback;
+
+    private volatile ByteBuffer buffer = null;
+
+    JacksonDecoder(ObjectMapper objectMapper, ResponseHeaders responseHeaders, Type type, Callback<Object> callback) {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.responseHeaders = responseHeaders;
+        this.type = Objects.requireNonNull(type, "type");
+        this.callback = Objects.requireNonNull(callback, "callback");
+    }
+
+    private ByteBuffer init(int potentialInitialCapacity) {
+        int length = Optional.ofNullable(responseHeaders.getHeaders()).orElseGet(Collections::emptyList)
+                .stream()
+                .filter(Objects::nonNull)
+                .filter(header -> "content-length".equalsIgnoreCase(header.getKey()))
+                .findAny()
+                .map(HttpParam::getValue)
+                .map(this::parse)
+                .orElse(-1);
+
+        if (length > 0) {
+            return ByteBuffer.allocate(length);
+        }
+
+        return ByteBuffer.allocate(potentialInitialCapacity);
+    }
+
+    private ByteBuffer resize(int additionalCapacity) {
+        ByteBuffer b = ByteBuffer.allocate(buffer.capacity() + additionalCapacity);
+        buffer.position(0);
+        b.put(buffer);
+        return b;
     }
 
     @Override
-    public void decode(ResponseHeaders response, Type type, Callback<Object> callback) {
+    public void onContent(ByteBuffer content) {
+        if (buffer == null) {
+            buffer = init(content.remaining());
+        }
+
+        if ((buffer.capacity() - buffer.position()) < content.remaining()) {
+            buffer = resize(content.remaining());
+        }
+
+        buffer.put(content);
+    }
+
+    @Override
+    public void onComplete() {
         try {
+            callback.onSuccess(objectMapper.readValue(buffer.array(), buffer.arrayOffset(), buffer.arrayOffset() + buffer.limit(), objectMapper.constructType(type)));
+        } catch (Throwable t) {
+            callback.onError(t);
+        }
+    }
 
-            if (response.getResponseBody() == null) {
-                callback.onSuccess(null);
-                return;
-            }
+    @Override
+    public void abort() {
+        this.buffer.clear();
+    }
 
-            ByteBuffer buffer = response.getResponseBody().getBuffer();
-
-            JavaType javaType = objectMapper.constructType(type);
-
-            // if response is backed by an array, use it directly. Since this is all in-memory, it should be non-blocking
-            if (buffer.hasArray()) {
-                callback.onSuccess(objectMapper.readValue(buffer.array(), javaType));
-            } else {
-                // since the buffer isn't backed by the heap, reading it may involve blocking IO to read data from
-                // disk. This means that in order to avoid blocking the calling thread, we have to run the
-                // deserialization in a background thread.
-                threadpool.execute(() -> {
-                    try (InputStream stream = new BufferedInputStream(new ByteBufferInputStream(buffer))) {
-                        callback.onSuccess(objectMapper.readValue(stream, javaType));
-                    } catch (Throwable e) {
-                        callback.onError(e);
-                    }
-                });
-            }
-        } catch (Throwable e) {
-            callback.onError(e);
+    private Integer parse(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            return null;
         }
     }
 }
