@@ -40,7 +40,7 @@ public class JacksonEncoder implements RequestEncoder {
     public <T> void encode(T entity, Callback<ByteBuffer> callback) {
         try {
             callback.onSuccess(ByteBuffer.wrap(objectMapper.writeValueAsBytes(entity)));
-        } catch (Exception e) {
+        } catch (Throwable e) {
             callback.onError(e);
         }
     }

@@ -21,6 +21,8 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Value
 @Builder(toBuilder = true)
@@ -29,5 +31,54 @@ public class ResponseHeaders {
     private final List<HttpParam> headers;
 
     private final int status;
+
+    /**
+     * Return the value for the given key, if one exists.
+     * Note that key comparisons are case insensitive, per the HTTP spec
+     * (e.g. a request for "foo" will match an entry with the key "Foo").
+     * In the event that multiple headers match the requested key, which value will be returned is formally undefined.
+     *
+     * @param key The key to search for
+     * @return empty if the key is null or there are no headers, or if there is no value for the given key.
+     * Otherwise, an optional containing the value for the requested key
+     */
+    public Optional<String> getValue(String key) {
+
+        if (key == null) {
+            return Optional.empty();
+        }
+
+        if (headers == null) {
+            return Optional.empty();
+        }
+
+        return headers.stream()
+                .filter(Objects::nonNull)
+                .filter(header -> key.equalsIgnoreCase(header.getKey()))
+                .findAny()
+                .map(HttpParam::getValue);
+    }
+
+    /**
+     * Get the value of the "Content-Length" header, if one is present
+     *
+     * @return The value of the content length header, if it is present and can be parsed as a valid long
+     */
+    public Optional<Long> getContentLength() {
+        return getValue("content-length").flatMap(this::parseLong);
+    }
+
+    private Optional<Long> parseLong(String input) {
+
+        if (input == null) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(Long.decode(input));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
 
 }

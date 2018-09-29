@@ -28,7 +28,7 @@ public class ByteBufferInputStream extends InputStream {
     private int currentOffset;
 
     public ByteBufferInputStream(ByteBuffer buffer) {
-        this.buffer = Objects.requireNonNull(buffer, "buffer");
+        this.buffer = Objects.requireNonNull(buffer, "buffer").duplicate();
         this.currentOffset = 0;
     }
 

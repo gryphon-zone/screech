@@ -19,6 +19,7 @@ package zone.gryphon.screech.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 @Value
@@ -26,6 +27,7 @@ import lombok.Value;
 @AllArgsConstructor
 public class HttpParam {
 
+    @NonNull
     private final String key;
 
     private final String value;
