@@ -17,6 +17,7 @@
 
 package zone.gryphon.screech.util;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 public class ExpandableByteBuffer {
@@ -80,5 +81,9 @@ public class ExpandableByteBuffer {
 
     public void clear() {
         this.buffer.clear();
+    }
+
+    public InputStream createInputStream() {
+        return new ByteBufferInputStream(buffer);
     }
 }

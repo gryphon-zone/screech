@@ -22,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.ResponseHeaders;
-import zone.gryphon.screech.util.ByteBufferInputStream;
 import zone.gryphon.screech.util.ExpandableByteBuffer;
 
 import java.io.BufferedInputStream;
@@ -67,7 +66,7 @@ public class JacksonDecoder implements ResponseDecoder {
     public void onComplete() {
 
         // since backing buffer for stream is in-memory, it should never block, and therefore it should be safe to call
-        try (InputStream inputStream = new BufferedInputStream(new ByteBufferInputStream(buffer.getCurrentBackingBuffer()))) {
+        try (InputStream inputStream = new BufferedInputStream(buffer.createInputStream())) {
             callback.onSuccess(objectMapper.readValue(inputStream, objectMapper.constructType(type)));
         } catch (Throwable t) {
             callback.onError(t);
