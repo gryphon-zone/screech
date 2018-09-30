@@ -27,20 +27,32 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+
 @Slf4j
 public class InstanceBuilderTest {
 
+    @Header("Accept: */*")
     public interface TestInterface {
 
-        @Header("Content-Type: application/json")
-        @RequestLine("GET /target?foo={foo}&bar={foo}&baz={foo}")
-        CompletableFuture<String> asyncCompletableFuture(@Param("foo") String foo, String body);
-
-        @RequestLine("GET /target?foo={param}")
-        Future<String> asyncFuture(@Param("param") String foo);
+        @RequestLine("GET /target")
+        CompletableFuture<String> asyncCompletableFutureGET();
 
         @RequestLine("GET /target")
-        String sync(@Param("foo") String foo);
+        Future<String> asyncFutureGET();
+
+        @RequestLine("GET /target")
+        String syncGET();
+
+        @RequestLine("POST /target")
+        CompletableFuture<String> asyncCompletableFuturePOST(String body);
+
+        @RequestLine("POST /target")
+        Future<String> asyncFuturePOST(String body);
+
+        @RequestLine("POST /target")
+        String syncPOST(String body);
 
     }
 
@@ -48,33 +60,40 @@ public class InstanceBuilderTest {
 
         @Override
         public void request(SerializedRequest request, ClientCallback callback) {
-            log.info("request: {}", request);
 
-            if (request.getRequestBody() != null) {
-                log.info("request body: {}", new String(request.getRequestBody().getBody().array()));
-            } else {
-                log.info("No request body");
+            try {
+                ContentCallback contentCallback = callback.onHeaders(ResponseHeaders.builder().build());
+
+                String response;
+
+                if (request.getRequestBody() != null) {
+                    response = new String(request.getRequestBody().getBody().array(), UTF_8);
+                } else {
+                    response = "Hello world!";
+                }
+
+                // call with individual bytes to test multiple invocations of content
+                for (byte b : response.getBytes(UTF_8)) {
+                    contentCallback.onContent(ByteBuffer.wrap(new byte[]{b}));
+                }
+
+            } finally {
+                callback.complete();
             }
-
-            ContentCallback contentCallback = callback.onHeaders(ResponseHeaders.builder().build());
-
-            // call with individual bytes to test multiple invocations of onContent
-            for (byte b : "Hello world!".getBytes(StandardCharsets.UTF_8)) {
-                contentCallback.onContent(ByteBuffer.wrap(new byte[]{b}));
-            }
-
-            callback.complete();
         }
     }
 
     @Test
     public void name() throws Exception {
-        TestInterface test = new InstanceBuilder(new MockClient()).build(TestInterface.class, new HardCodedTarget("http://localhost"));
+        TestInterface test = new InstanceBuilder(new MockClient())
+                .build(TestInterface.class, new HardCodedTarget("http://localhost"));
 
-        log.info("Result of sync method: {}", test.sync("foobar"));
+        assertThat(test.syncGET()).isEqualTo("Hello world!");
+        assertThat(test.asyncFutureGET().get()).isEqualTo("Hello world!");
+        assertThat(test.asyncCompletableFutureGET().get()).isEqualTo("Hello world!");
 
-        log.info("Result of asyncCompletableFuture method: {}", test.asyncCompletableFuture("foobar", "asdfasdfasdfasdf").get());
-
-        log.info("Result of asyncFuture method: {}", test.asyncFuture("foobar").get());
+        assertThat(test.syncPOST("foo")).isEqualTo("foo");
+        assertThat(test.asyncFuturePOST("bar").get()).isEqualTo("bar");
+        assertThat(test.asyncCompletableFuturePOST("baz").get()).isEqualTo("baz");
     }
 }

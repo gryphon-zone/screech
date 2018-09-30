@@ -35,12 +35,12 @@ public interface ResponseDecoderFactory {
             return new ResponseDecoder() {
 
                 @Override
-                public void onContent(ByteBuffer content) {
+                public void content(ByteBuffer content) {
 
                 }
 
                 @Override
-                public void onComplete() {
+                public void complete() {
                     callback.onError(new RuntimeException("We got errors, sir"));
                 }
 
@@ -61,12 +61,12 @@ public interface ResponseDecoderFactory {
                 private final List<ByteBuffer> buffers = new ArrayList<>();
 
                 @Override
-                public void onContent(ByteBuffer content) {
+                public void content(ByteBuffer content) {
                     buffers.add(content);
                 }
 
                 @Override
-                public void onComplete() {
+                public void complete() {
                     ByteBuffer buffer = ByteBuffer.allocate(buffers.stream().mapToInt(ByteBuffer::limit).sum());
 
                     for (ByteBuffer byteBuffer : buffers) {

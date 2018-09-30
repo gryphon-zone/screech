@@ -18,7 +18,6 @@
 package zone.gryphon.screech.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.ResponseHeaders;
@@ -30,7 +29,6 @@ import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
-@Slf4j
 public class JacksonDecoder implements ResponseDecoder {
 
     private final ObjectMapper objectMapper;
@@ -53,7 +51,7 @@ public class JacksonDecoder implements ResponseDecoder {
     }
 
     @Override
-    public void onContent(ByteBuffer content) {
+    public void content(ByteBuffer content) {
 
         if (content == null || content.remaining() == 0) {
             return;
@@ -63,7 +61,7 @@ public class JacksonDecoder implements ResponseDecoder {
     }
 
     @Override
-    public void onComplete() {
+    public void complete() {
 
         // since backing buffer for stream is in-memory, it should never block, and therefore it should be safe to call
         try (InputStream inputStream = new BufferedInputStream(buffer.createInputStream())) {

@@ -51,11 +51,11 @@ public class ClientCallbackImpl implements Client.ClientCallback {
         return content -> {
 
             if (terminalOperationCalled) {
-                log.error("Client.ContentCallback.onContent() called after completing request!");
+                log.error("Client.ContentCallback.content() called after completing request!");
                 return;
             }
 
-            consumer.ifPresent(c -> c.onContent(content));
+            consumer.ifPresent(c -> c.content(content));
         };
     }
 
@@ -69,6 +69,6 @@ public class ClientCallbackImpl implements Client.ClientCallback {
     @Override
     public void complete() {
         terminalOperationCalled = true;
-        consumer.ifPresent(ResponseDecoder::onComplete);
+        consumer.ifPresent(ResponseDecoder::complete);
     }
 }

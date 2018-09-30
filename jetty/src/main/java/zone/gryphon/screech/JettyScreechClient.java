@@ -57,7 +57,7 @@ public class JettyScreechClient implements Client, Closeable {
         public void onContent(Response response, ByteBuffer content) {
 
             if (contentCallback == null) {
-                log.error("onContent() called before onHeaders()"); // TODO replace slf4j
+                log.error("content() called before onHeaders()"); // TODO replace slf4j
                 return;
             }
 

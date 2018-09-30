@@ -24,13 +24,22 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Headers + HTTP status code for a response.
+ */
 @Value
 @Builder(toBuilder = true)
 public class ResponseHeaders {
 
-    private final List<HttpParam> headers;
-
+    /**
+     * The status code of the request
+     */
     private final int status;
+
+    /**
+     * Headers on the request
+     */
+    private final List<HttpParam> headers;
 
     /**
      * Return the value for the given key, if one exists.
@@ -44,11 +53,7 @@ public class ResponseHeaders {
      */
     public Optional<String> getValue(String key) {
 
-        if (key == null) {
-            return Optional.empty();
-        }
-
-        if (headers == null) {
+        if (key == null || headers == null) {
             return Optional.empty();
         }
 
