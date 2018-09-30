@@ -26,8 +26,9 @@ import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.Request;
 import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.Response;
+import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.util.ClientCallbackImpl;
 import zone.gryphon.screech.util.StringInterpolator;
 import zone.gryphon.screech.util.StringInterpolatorApi;
 import zone.gryphon.screech.util.Util;
@@ -66,8 +67,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
             Method method,
             RequestEncoder requestEncoder,
             List<RequestInterceptor> requestInterceptors,
-            ResponseDecoder responseDecoder,
-            ErrorDecoder errorDecoder,
+            ResponseDecoderFactory responseDecoder,
+            ResponseDecoderFactory errorDecoder,
             Client client,
             Target target) {
         return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
@@ -106,9 +107,9 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private final List<RequestInterceptor> requestInterceptors;
 
-    private final ResponseDecoder responseDecoder;
+    private final ResponseDecoderFactory responseDecoder;
 
-    private final ErrorDecoder errorDecoder;
+    private final ResponseDecoderFactory errorDecoder;
 
     private final Client client;
 
@@ -118,8 +119,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
             @NonNull Method method,
             @NonNull RequestEncoder encoder,
             @NonNull List<RequestInterceptor> requestInterceptors,
-            @NonNull ResponseDecoder responseDecoder,
-            @NonNull ErrorDecoder errorDecoder,
+            @NonNull ResponseDecoderFactory responseDecoder,
+            @NonNull ResponseDecoderFactory errorDecoder,
             @NonNull Client client,
             @NonNull Target target) {
 
@@ -204,7 +205,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
     }
 
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    public Object invoke(Object proxy, Method method, Object[] args) {
         CompletableFuture<Object> response = new CompletableFuture<>();
 
         setUpInterceptors(0, buildRequest(args), new Callback<Response<?>>() {
@@ -560,36 +561,24 @@ public class AsyncInvocationHandler implements InvocationHandler {
     }
 
     private void doRequest(ByteBuffer buffer, Request request, Callback<Response<?>> callback) {
-        wrapCallToUserCode(callback, () -> client.request(convertRequestIntoSerializedRequest(buffer, request), new Callback<SerializedResponse>() {
-
-            @Override
-            public void onSuccess(SerializedResponse result) {
-                decode(result, callback);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                callback.onError(e);
-            }
-        }));
+        //noinspection OptionalUsedAsFieldOrParameterType
+        wrapCallToUserCode(callback, () -> client.request(convertRequestIntoSerializedRequest(buffer, request), new ClientCallbackImpl(callback, this::createDecoder)));
     }
 
-    private void decode(SerializedResponse clientResponse, Callback<Response<?>> callback) {
+    private ResponseDecoder createDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
         if (clientResponse == null) {
-            callback.onError(new NullPointerException(String.format("Client '%s' returned null SerializedResponse", client.getClass().getSimpleName())));
+            callback.onError(new NullPointerException(String.format("Client '%s' returned null ResponseHeaders", client.getClass().getSimpleName())));
+            return null;
         } else if (clientResponse.getStatus() >= 300) {
-            handleNonSuccessStatus(clientResponse, callback);
+            return createFailureDecoder(clientResponse, callback);
         } else {
-            handleSuccessStatus(clientResponse, callback);
+            return createSuccessDecoder(clientResponse, callback);
         }
     }
 
-    private void handleNonSuccessStatus(SerializedResponse clientResponse, Callback<Response<?>> callback) {
-        wrapCallToUserCode(callback, () -> errorDecoder.decode(clientResponse, callback));
-    }
+    private ResponseDecoder createFailureDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
+        return errorDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
 
-    private void handleSuccessStatus(SerializedResponse clientResponse, Callback<Response<?>> callback) {
-        wrapCallToUserCode(callback, () -> responseDecoder.decode(clientResponse, effectiveReturnType, new Callback<Object>() {
             @Override
             public void onSuccess(Object result) {
                 Response<?> response = Response.builder()
@@ -604,7 +593,26 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 callback.onError(e);
             }
 
-        }));
+        });
+    }
+
+    private ResponseDecoder createSuccessDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
+        return responseDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
+
+            @Override
+            public void onSuccess(Object result) {
+                Response<?> response = Response.builder()
+                        .entity(isOptionalResponseType ? Optional.ofNullable(result) : result)
+                        .build();
+
+                callback.onSuccess(response);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                callback.onError(e);
+            }
+        });
     }
 
     private void wrapCallToUserCode(Callback<?> callback, Runnable runnable) {

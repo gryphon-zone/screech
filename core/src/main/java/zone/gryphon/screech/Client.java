@@ -17,10 +17,28 @@
 
 package zone.gryphon.screech;
 
+import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.model.SerializedResponse;
+
+import java.nio.ByteBuffer;
 
 public interface Client {
 
-    void request(SerializedRequest request, Callback<SerializedResponse> callback);
+    void request(SerializedRequest request, ClientCallback callback);
+
+    interface ClientCallback {
+
+        ContentCallback onHeaders(ResponseHeaders responseHeaders);
+
+        void abort(Throwable t);
+
+        void complete();
+
+    }
+
+    interface ContentCallback {
+
+        void onContent(ByteBuffer content);
+
+    }
 }

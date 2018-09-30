@@ -36,9 +36,9 @@ public class InstanceBuilder {
 
     private List<RequestInterceptor> requestInterceptors = new ArrayList<>();
 
-    private ResponseDecoder responseDecoder = new ResponseDecoder.StringResponseDecoder();
+    private ResponseDecoderFactory responseDecoder = new ResponseDecoderFactory.SuccessResponseDecoderFactory();
 
-    private ErrorDecoder errorDecoder = new ErrorDecoder.DefaultErrorDecoder();
+    private ResponseDecoderFactory errorDecoder = new ResponseDecoderFactory.ErrorResponseDecoderFactory();
 
     private Client client;
 
@@ -61,12 +61,12 @@ public class InstanceBuilder {
         return this;
     }
 
-    public InstanceBuilder responseDecoder(@NonNull ResponseDecoder responseDecoder) {
+    public InstanceBuilder responseDecoder(@NonNull ResponseDecoderFactory responseDecoder) {
         this.responseDecoder = responseDecoder;
         return this;
     }
 
-    public InstanceBuilder errorDecoder(@NonNull ErrorDecoder errorDecoder) {
+    public InstanceBuilder errorDecoder(@NonNull ResponseDecoderFactory errorDecoder) {
         this.errorDecoder = errorDecoder;
         return this;
     }

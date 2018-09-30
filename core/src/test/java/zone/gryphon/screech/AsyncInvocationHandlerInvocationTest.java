@@ -23,9 +23,9 @@ import org.junit.Before;
 import org.junit.Test;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.RequestBody;
-import zone.gryphon.screech.model.ResponseBody;
+import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.model.SerializedResponse;
+import zone.gryphon.screech.util.ClientCallbackImpl;
 
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -48,13 +48,7 @@ import static org.mockito.Mockito.verify;
 @Slf4j
 public class AsyncInvocationHandlerInvocationTest {
 
-    private RequestEncoder requestEncoder = mock(RequestEncoder.class);
-
     private List<RequestInterceptor> requestInterceptors;
-
-    private ResponseDecoder responseDecoder = mock(ResponseDecoder.class);
-
-    private ErrorDecoder errorDecoder = mock(ErrorDecoder.class);
 
     private Client client = mock(Client.class);
 
@@ -62,7 +56,7 @@ public class AsyncInvocationHandlerInvocationTest {
 
     @Before
     public void setup() {
-        reset(requestEncoder, responseDecoder, errorDecoder, client, target);
+        reset(client, target);
         requestInterceptors = new ArrayList<>();
     }
 
@@ -94,26 +88,25 @@ public class AsyncInvocationHandlerInvocationTest {
     public void testClassLevelHeader() throws Exception {
 
         ClassLevelHeader instance = new InstanceBuilder(client)
-                .errorDecoder(new ErrorDecoder.DefaultErrorDecoder())
                 .requestEncoder(new RequestEncoder.StringRequestEncoder())
-                .responseDecoder(new ResponseDecoder.StringResponseDecoder())
+                .errorDecoder(new ResponseDecoderFactory.ErrorResponseDecoderFactory())
+                .responseDecoder(new ResponseDecoderFactory.SuccessResponseDecoderFactory())
                 .addRequestInterceptors(requestInterceptors)
                 .build(ClassLevelHeader.class, target);
 
         doReturn("http://localhost").when(target).getTarget();
 
-        SerializedResponse response = SerializedResponse.builder()
-                .status(200)
-                .headers(Collections.singletonList(new HttpParam("Content-Type", "application/json")))
-                .responseBody(ResponseBody.builder()
-                        .contentType("application/json")
-                        .encoding(UTF_8.name())
-                        .buffer(ByteBuffer.wrap("Hello world!".getBytes(UTF_8)))
-                        .build())
-                .build();
-
         doAnswer(invocation -> {
-            ((Callback) invocation.getArguments()[1]).onSuccess(response);
+            Client.ClientCallback clientCallback = ((Client.ClientCallback) invocation.getArguments()[1]);
+
+            ResponseHeaders response = ResponseHeaders.builder()
+                    .status(200)
+                    .headers(Collections.singletonList(new HttpParam("Content-Type", "application/json")))
+                    .build();
+
+            clientCallback.onHeaders(response).onContent(ByteBuffer.wrap("Hello world!".getBytes(UTF_8)));
+            clientCallback.complete();
+
             return null;
         }).when(client).request(any(), any());
 

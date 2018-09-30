@@ -17,50 +17,29 @@
 
 package zone.gryphon.screech;
 
-import zone.gryphon.screech.model.SerializedResponse;
-
-import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import java.util.Optional;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public interface ResponseDecoder {
 
-    void decode(SerializedResponse response, Type type, Callback<Object> callback);
+    /**
+     * Called when content is available
+     *
+     * @param content The new content
+     */
+    void content(ByteBuffer content);
 
-    class StringResponseDecoder implements ResponseDecoder {
+    /**
+     * Called when no more content is available, and the decoder should decode the content it received prior to this call
+     */
+    void complete();
 
-        @Override
-        public void decode(SerializedResponse response, Type type, Callback<Object> callback) {
+    /**
+     * Called when the request failed while streaming content, and the decoder should discard any resources it had open.
+     *
+     * <h3>Important:</h3>
+     * The decoder should <i>not</i> call any methods on the response callback in this case, and should return after
+     * clearing any resources it had open.
+     */
+    void abort();
 
-            if (response.getStatus() == 404) {
-                callback.onSuccess(null);
-                return;
-            }
-
-            if (response.getResponseBody() == null) {
-                callback.onSuccess(null);
-                return;
-            }
-
-            ByteBuffer responseBody = response.getResponseBody().getBuffer();
-
-            if (byte[].class.equals(type)) {
-                callback.onSuccess(responseBody.array());
-                return;
-            }
-
-            if (ByteBuffer.class.equals(type)) {
-                callback.onSuccess(responseBody);
-                return;
-            }
-
-            try {
-                callback.onSuccess(new String(responseBody.array(), Optional.ofNullable(response.getResponseBody().getEncoding()).orElse(UTF_8.name())));
-            } catch (Exception e) {
-                callback.onError(new IllegalArgumentException("Unknown encoding " + response.getResponseBody().getEncoding(), e));
-            }
-        }
-    }
 }

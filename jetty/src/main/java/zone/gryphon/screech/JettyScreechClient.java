@@ -17,21 +17,73 @@
 
 package zone.gryphon.screech;
 
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.client.api.Result;
-import org.eclipse.jetty.client.util.BufferingResponseListener;
 import org.eclipse.jetty.client.util.ByteBufferContentProvider;
-import zone.gryphon.screech.model.ResponseBody;
+import zone.gryphon.screech.model.HttpParam;
+import zone.gryphon.screech.model.RequestBody;
+import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.model.SerializedResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
-import java.util.function.Consumer;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
+@Slf4j
 public class JettyScreechClient implements Client, Closeable {
+
+    private static class PassThroughResponseAdapter extends Response.Listener.Adapter {
+
+        private final Client.ClientCallback callback;
+
+        private volatile ContentCallback contentCallback;
+
+        private PassThroughResponseAdapter(ClientCallback callback) {
+            this.callback = Objects.requireNonNull(callback, "client callback may not be null");
+        }
+
+        @Override
+        public void onHeaders(Response response) {
+            contentCallback = callback.onHeaders(toScreechResponse(response));
+        }
+
+        @Override
+        public void onContent(Response response, ByteBuffer content) {
+
+            if (contentCallback == null) {
+                log.error("content() called before onHeaders()"); // TODO replace slf4j
+                return;
+            }
+
+            contentCallback.onContent(content);
+        }
+
+        @Override
+        public void onComplete(Result result) {
+            if (result.getFailure() != null) {
+                callback.abort(result.getFailure());
+            } else {
+                callback.complete();
+            }
+        }
+    }
+
+    private static ResponseHeaders toScreechResponse(Response response) {
+        List<HttpParam> headers = response.getHeaders().stream()
+                .map(header -> new HttpParam(header.getName(), header.getValue()))
+                .collect(Collectors.toList());
+
+        return ResponseHeaders.builder()
+                .status(response.getStatus())
+                .headers(headers)
+                .build();
+    }
 
     private static HttpClient createAndConfigureClient() {
         HttpClient client = new HttpClient();
@@ -40,6 +92,8 @@ public class JettyScreechClient implements Client, Closeable {
         return client;
     }
 
+    ////  End of statics  ////
+
     private final HttpClient client;
 
     public JettyScreechClient() {
@@ -47,7 +101,7 @@ public class JettyScreechClient implements Client, Closeable {
     }
 
     public JettyScreechClient(HttpClient client) {
-        this.client = client;
+        this.client = Objects.requireNonNull(client, "client may not be null");
 
         try {
             this.client.start();
@@ -57,57 +111,8 @@ public class JettyScreechClient implements Client, Closeable {
     }
 
     @Override
-    public void request(SerializedRequest request, Callback<SerializedResponse> callback) {
-        convert(request).send(new BufferingResponseListener() {
-
-            @Override
-            public void onComplete(Result result) {
-                try {
-                    callback.onSuccess(convert(result, getContent(), getEncoding(), getMediaType()));
-                } catch (Throwable e) {
-                    callback.onError(e);
-                }
-            }
-        });
-    }
-
-    private SerializedResponse convert(Result result, byte[] body, String encoding, String contentType) throws Throwable {
-
-        // does not include 4xx/5xx status codes, indicates something like a read timeout, connection reset, etc...
-        if (result.isFailed()) {
-            throw result.getFailure();
-        }
-
-        ResponseBody responseBody = ResponseBody.from(ByteBuffer.wrap(body), contentType, encoding);
-
-        Map<String, Collection<String>> headers = new HashMap<>();
-
-        result.getResponse().getHeaders().forEach(header -> headers.computeIfAbsent(header.getName(), ignored -> new ArrayList<>()).add(header.getValue()));
-
-        return SerializedResponse.builder()
-                .status(result.getResponse().getStatus())
-                .responseBody(responseBody)
-                .headers(Collections.unmodifiableList(Collections.emptyList()))
-                .build();
-    }
-
-    private org.eclipse.jetty.client.api.Request convert(SerializedRequest request) {
-        org.eclipse.jetty.client.api.Request jettyRequest = client.newRequest(request.getUri())
-                .method(request.getMethod());
-
-        if (request.getHeaders() != null) {
-//            request.getHeaders().forEach((key, values) -> values.forEach(value -> jettyRequest.header(key, value)));
-        }
-
-        if (request.getQueryParams() != null) {
-//            request.getQueryParams().forEach((key, values) -> values.forEach(value -> jettyRequest.param(key, value)));
-        }
-
-        if (request.getRequestBody() != null) {
-            jettyRequest.content(new ByteBufferContentProvider(request.getRequestBody().getContentType(), request.getRequestBody().getBody()));
-        }
-
-        return jettyRequest;
+    public void request(SerializedRequest request, Client.ClientCallback callback) {
+        toJettyRequest(request).send(new PassThroughResponseAdapter(callback));
     }
 
     @Override
@@ -119,5 +124,30 @@ public class JettyScreechClient implements Client, Closeable {
         }
     }
 
+    private Request toJettyRequest(SerializedRequest request) {
+        Objects.requireNonNull(request, "SerializedRequest may not be null");
+
+        Request jettyRequest = client.newRequest(request.getUri())
+                .method(request.getMethod());
+
+        if (request.getHeaders() != null) {
+            for (HttpParam header : request.getHeaders()) {
+                jettyRequest.header(header.getKey(), header.getValue());
+            }
+        }
+
+        if (request.getQueryParams() != null) {
+            for (HttpParam queryParam : request.getQueryParams()) {
+                jettyRequest.param(queryParam.getKey(), queryParam.getValue());
+            }
+        }
+
+        if (request.getRequestBody() != null) {
+            RequestBody requestBody = request.getRequestBody();
+            jettyRequest.content(new ByteBufferContentProvider(requestBody.getContentType(), requestBody.getBody()));
+        }
+
+        return jettyRequest;
+    }
 
 }

@@ -26,11 +26,10 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
-import zone.gryphon.screech.jackson.JacksonDecoder;
+import zone.gryphon.screech.jackson.JacksonDecoderFactory;
 import zone.gryphon.screech.jackson.JacksonEncoder;
 
 import java.util.Arrays;
@@ -93,7 +92,7 @@ public class BasicIntegrationTest {
         widgetApi = new InstanceBuilder(new JettyScreechClient())
                 .addRequestInterceptor(new RequestInterceptor.PassThroughRequestInterceptor())
                 .requestEncoder(new JacksonEncoder())
-                .responseDecoder(new JacksonDecoder())
+                .responseDecoder(new JacksonDecoderFactory())
                 .build(WidgetApi.class, new HardCodedTarget("http://127.0.0.1:" + server.getPort()));
     }
 

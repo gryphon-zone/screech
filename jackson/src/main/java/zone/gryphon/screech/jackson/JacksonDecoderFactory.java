@@ -17,31 +17,31 @@
 
 package zone.gryphon.screech.jackson;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import zone.gryphon.screech.Callback;
-import zone.gryphon.screech.RequestEncoder;
+import zone.gryphon.screech.ResponseDecoder;
+import zone.gryphon.screech.ResponseDecoderFactory;
+import zone.gryphon.screech.model.ResponseHeaders;
 
-import java.nio.ByteBuffer;
+import java.lang.reflect.Type;
 import java.util.Objects;
 
-public class JacksonEncoder implements RequestEncoder {
+public class JacksonDecoderFactory implements ResponseDecoderFactory {
 
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper mapper;
 
-    public JacksonEncoder() {
-        this(new ObjectMapper());
+    public JacksonDecoderFactory() {
+        this(new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES));
     }
 
-    public JacksonEncoder(ObjectMapper objectMapper) {
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+    public JacksonDecoderFactory(ObjectMapper mapper) {
+        this.mapper = Objects.requireNonNull(mapper);
     }
 
     @Override
-    public <T> void encode(T entity, Callback<ByteBuffer> callback) {
-        try {
-            callback.onSuccess(ByteBuffer.wrap(objectMapper.writeValueAsBytes(entity)));
-        } catch (Throwable e) {
-            callback.onError(e);
-        }
+    public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
+        return new JacksonDecoder(mapper, response, type, callback);
     }
+
 }
