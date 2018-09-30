@@ -15,7 +15,7 @@
  *
  */
 
-package zone.gryphon.screech.util;
+package zone.gryphon.screech.internal;
 
 import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.Callback;
@@ -45,7 +45,7 @@ public class ClientCallbackImpl implements Client.ClientCallback {
     }
 
     @Override
-    public Client.ContentCallback onHeaders(ResponseHeaders responseHeaders) {
+    public Client.ContentCallback headers(ResponseHeaders responseHeaders) {
         consumer = Optional.ofNullable(factory.apply(responseHeaders, callback));
 
         return content -> {
@@ -63,7 +63,7 @@ public class ClientCallbackImpl implements Client.ClientCallback {
     public void abort(Throwable t) {
         terminalOperationCalled = true;
         consumer.ifPresent(ResponseDecoder::abort);
-        callback.onError(t);
+        callback.onFailure(t);
     }
 
     @Override

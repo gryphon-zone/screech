@@ -41,7 +41,7 @@ public class JacksonEncoder implements RequestEncoder {
         try {
             callback.onSuccess(ByteBuffer.wrap(objectMapper.writeValueAsBytes(entity)));
         } catch (Throwable e) {
-            callback.onError(e);
+            callback.onFailure(e);
         }
     }
 }

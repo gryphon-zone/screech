@@ -25,7 +25,6 @@ import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.util.ClientCallbackImpl;
 
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -87,7 +86,7 @@ public class AsyncInvocationHandlerInvocationTest {
     @Test
     public void testClassLevelHeader() throws Exception {
 
-        ClassLevelHeader instance = new InstanceBuilder(client)
+        ClassLevelHeader instance = new ScreechBuilder(client)
                 .requestEncoder(new RequestEncoder.StringRequestEncoder())
                 .errorDecoder(new ResponseDecoderFactory.ErrorResponseDecoderFactory())
                 .responseDecoder(new ResponseDecoderFactory.SuccessResponseDecoderFactory())
@@ -104,7 +103,7 @@ public class AsyncInvocationHandlerInvocationTest {
                     .headers(Collections.singletonList(new HttpParam("Content-Type", "application/json")))
                     .build();
 
-            clientCallback.onHeaders(response).onContent(ByteBuffer.wrap("Hello world!".getBytes(UTF_8)));
+            clientCallback.headers(response).content(ByteBuffer.wrap("Hello world!".getBytes(UTF_8)));
             clientCallback.complete();
 
             return null;

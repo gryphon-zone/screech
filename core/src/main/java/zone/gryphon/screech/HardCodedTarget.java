@@ -17,25 +17,24 @@
 
 package zone.gryphon.screech;
 
-import lombok.NonNull;
-
 import java.net.URI;
 import java.net.URL;
+import java.util.Objects;
 
 public class HardCodedTarget implements Target {
 
     private final String target;
 
-    public HardCodedTarget(@NonNull URL target) {
-        this(target.toString());
+    public HardCodedTarget(URL target) {
+        this(Objects.requireNonNull(target, "target may not be null").toString());
     }
 
     public HardCodedTarget(String target) {
         this.target = target;
     }
 
-    public HardCodedTarget(@NonNull URI target) {
-        this(target.toString());
+    public HardCodedTarget(URI target) {
+        this(Objects.requireNonNull(target, "target may not be null").toString());
     }
 
     @Override

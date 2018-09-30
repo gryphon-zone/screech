@@ -28,9 +28,9 @@ import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.util.ClientCallbackImpl;
+import zone.gryphon.screech.internal.ClientCallbackImpl;
+import zone.gryphon.screech.util.SimpleStringInterpolator;
 import zone.gryphon.screech.util.StringInterpolator;
-import zone.gryphon.screech.util.StringInterpolatorApi;
 import zone.gryphon.screech.util.Util;
 
 import java.lang.annotation.Annotation;
@@ -93,7 +93,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private final Function<Object[], Object> bodyFunction;
 
-    private final Map<String, StringInterpolatorApi> interpolatorCache;
+    private final Map<String, StringInterpolator> interpolatorCache;
 
     private final String methodKey;
 
@@ -169,19 +169,19 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     }
 
-    private Map<String, StringInterpolatorApi> buildInterpolatorCache(String path, List<HttpParam> queryParams, List<HttpParam> headerParams) {
-        Map<String, StringInterpolatorApi> out = new HashMap<>();
+    private Map<String, StringInterpolator> buildInterpolatorCache(String path, List<HttpParam> queryParams, List<HttpParam> headerParams) {
+        Map<String, StringInterpolator> out = new HashMap<>();
 
-        out.put(path, StringInterpolator.of(path));
+        out.put(path, SimpleStringInterpolator.of(path));
 
         queryParams.forEach(param -> {
-            out.put(param.getKey(), StringInterpolator.of(param.getKey()));
-            out.put(param.getValue(), StringInterpolator.of(param.getValue()));
+            out.put(param.getKey(), SimpleStringInterpolator.of(param.getKey()));
+            out.put(param.getValue(), SimpleStringInterpolator.of(param.getValue()));
         });
 
         headerParams.forEach(param -> {
-            out.put(param.getKey(), StringInterpolator.of(param.getKey()));
-            out.put(param.getValue(), StringInterpolator.of(param.getValue()));
+            out.put(param.getKey(), SimpleStringInterpolator.of(param.getKey()));
+            out.put(param.getValue(), SimpleStringInterpolator.of(param.getValue()));
         });
 
         return out;
@@ -215,7 +215,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             }
 
             @Override
-            public void onError(Throwable e) {
+            public void onFailure(Throwable e) {
                 response.completeExceptionally(e);
             }
         });
@@ -478,7 +478,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private HttpParam interpolateSimgleHttpParam(HttpParam param, Map<String, String> templateParams) {
 
-        if (StringInterpolator.requiresInterpolation(param.getKey()) || StringInterpolator.requiresInterpolation(param.getValue())) {
+        if (SimpleStringInterpolator.requiresInterpolation(param.getKey()) || SimpleStringInterpolator.requiresInterpolation(param.getValue())) {
             return HttpParam.builder()
                     .key(getInterpolator(param.getKey()).interpolate(templateParams))
                     .value(getInterpolator(param.getValue()).interpolate(templateParams))
@@ -489,8 +489,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
         return param;
     }
 
-    private StringInterpolatorApi getInterpolator(String input) {
-        return interpolatorCache.containsKey(input) ? interpolatorCache.get(input) : StringInterpolator.of(input);
+    private StringInterpolator getInterpolator(String input) {
+        return interpolatorCache.containsKey(input) ? interpolatorCache.get(input) : SimpleStringInterpolator.of(input);
     }
 
     private String parseContentType(List<HttpParam> headers) {
@@ -520,8 +520,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
                     }
 
                     @Override
-                    public void onError(Throwable e) {
-                        responseCallback.onError(e);
+                    public void onFailure(Throwable e) {
+                        responseCallback.onFailure(e);
                     }
                 });
             }, new Callback<Response<?>>() {
@@ -531,8 +531,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 }
 
                 @Override
-                public void onError(Throwable e) {
-                    modifiedResponseCallback.onError(e);
+                public void onFailure(Throwable e) {
+                    modifiedResponseCallback.onFailure(e);
                 }
             }));
         }
@@ -550,8 +550,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 }
 
                 @Override
-                public void onError(Throwable e) {
-                    callback.onError(e);
+                public void onFailure(Throwable e) {
+                    callback.onFailure(e);
                 }
 
             }));
@@ -567,7 +567,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private ResponseDecoder createDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
         if (clientResponse == null) {
-            callback.onError(new NullPointerException(String.format("Client '%s' returned null ResponseHeaders", client.getClass().getSimpleName())));
+            callback.onFailure(new NullPointerException(String.format("Client '%s' returned null ResponseHeaders", client.getClass().getSimpleName())));
             return null;
         } else if (clientResponse.getStatus() >= 300) {
             return createFailureDecoder(clientResponse, callback);
@@ -589,8 +589,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
             }
 
             @Override
-            public void onError(Throwable e) {
-                callback.onError(e);
+            public void onFailure(Throwable e) {
+                callback.onFailure(e);
             }
 
         });
@@ -609,8 +609,8 @@ public class AsyncInvocationHandler implements InvocationHandler {
             }
 
             @Override
-            public void onError(Throwable e) {
-                callback.onError(e);
+            public void onFailure(Throwable e) {
+                callback.onFailure(e);
             }
         });
     }
@@ -619,7 +619,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
         try {
             runnable.run();
         } catch (Throwable e) {
-            callback.onError(e);
+            callback.onFailure(e);
         }
     }
 

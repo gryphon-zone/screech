@@ -75,10 +75,6 @@ public class ExpandableByteBuffer {
         return this;
     }
 
-    public ByteBuffer getCurrentBackingBuffer() {
-        return buffer.asReadOnlyBuffer();
-    }
-
     public void clear() {
         this.buffer.clear();
     }

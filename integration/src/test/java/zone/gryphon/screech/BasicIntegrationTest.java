@@ -31,12 +31,15 @@ import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 import zone.gryphon.screech.jackson.JacksonDecoderFactory;
 import zone.gryphon.screech.jackson.JacksonEncoder;
+import zone.gryphon.screech.model.Request;
+import zone.gryphon.screech.model.Response;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +50,24 @@ public class BasicIntegrationTest {
     static {
         SLF4JBridgeHandler.removeHandlersForRootLogger();
         SLF4JBridgeHandler.install();
+    }
+
+    public class PassThroughRequestInterceptor implements RequestInterceptor {
+
+        @Override
+        public <X, Y> void intercept(
+                Request<X> request,
+                BiConsumer<Request<?>, Callback<Response<Y>>> callback,
+                Callback<Response<?>> responseCallback) {
+
+            callback.accept(request, (Callback.FunctionalCallback<Response<Y>>) (result, e) -> {
+                if (e != null) {
+                    responseCallback.onFailure(e);
+                } else {
+                    responseCallback.onSuccess(result);
+                }
+            });
+        }
     }
 
     @Data
@@ -89,8 +110,8 @@ public class BasicIntegrationTest {
 
     @Before
     public void setup() {
-        widgetApi = new InstanceBuilder(new JettyScreechClient())
-                .addRequestInterceptor(new RequestInterceptor.PassThroughRequestInterceptor())
+        widgetApi = new ScreechBuilder(new JettyScreechClient())
+                .addRequestInterceptor(new PassThroughRequestInterceptor())
                 .requestEncoder(new JacksonEncoder())
                 .responseDecoder(new JacksonDecoderFactory())
                 .build(WidgetApi.class, new HardCodedTarget("http://127.0.0.1:" + server.getPort()));

@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
-public class InstanceBuilder {
+public class ScreechBuilder {
 
     private RequestEncoder requestEncoder = new RequestEncoder.StringRequestEncoder();
 
@@ -42,31 +42,31 @@ public class InstanceBuilder {
 
     private Client client;
 
-    public InstanceBuilder(@NonNull Client client) {
+    public ScreechBuilder(@NonNull Client client) {
         this.client = client;
     }
 
-    public InstanceBuilder requestEncoder(@NonNull RequestEncoder requestEncoder) {
+    public ScreechBuilder requestEncoder(@NonNull RequestEncoder requestEncoder) {
         this.requestEncoder = requestEncoder;
         return this;
     }
 
-    public InstanceBuilder addRequestInterceptor(@NonNull RequestInterceptor requestInterceptor) {
+    public ScreechBuilder addRequestInterceptor(@NonNull RequestInterceptor requestInterceptor) {
         this.requestInterceptors.add(requestInterceptor);
         return this;
     }
 
-    public InstanceBuilder addRequestInterceptors(@NonNull Iterable<RequestInterceptor> requestInterceptors) {
+    public ScreechBuilder addRequestInterceptors(@NonNull Iterable<RequestInterceptor> requestInterceptors) {
         requestInterceptors.forEach(this::addRequestInterceptor);
         return this;
     }
 
-    public InstanceBuilder responseDecoder(@NonNull ResponseDecoderFactory responseDecoder) {
+    public ScreechBuilder responseDecoder(@NonNull ResponseDecoderFactory responseDecoder) {
         this.responseDecoder = responseDecoder;
         return this;
     }
 
-    public InstanceBuilder errorDecoder(@NonNull ResponseDecoderFactory errorDecoder) {
+    public ScreechBuilder errorDecoder(@NonNull ResponseDecoderFactory errorDecoder) {
         this.errorDecoder = errorDecoder;
         return this;
     }
