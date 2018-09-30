@@ -23,7 +23,6 @@ import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
@@ -31,7 +30,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
-public class InstanceBuilderTest {
+public class ScreechBuilderTest {
 
     @Header("Accept: */*")
     public interface TestInterface {
@@ -62,7 +61,7 @@ public class InstanceBuilderTest {
         public void request(SerializedRequest request, ClientCallback callback) {
 
             try {
-                ContentCallback contentCallback = callback.onHeaders(ResponseHeaders.builder().build());
+                ContentCallback contentCallback = callback.headers(ResponseHeaders.builder().build());
 
                 String response;
 
@@ -74,7 +73,7 @@ public class InstanceBuilderTest {
 
                 // call with individual bytes to test multiple invocations of content
                 for (byte b : response.getBytes(UTF_8)) {
-                    contentCallback.onContent(ByteBuffer.wrap(new byte[]{b}));
+                    contentCallback.content(ByteBuffer.wrap(new byte[]{b}));
                 }
 
             } finally {
@@ -85,7 +84,7 @@ public class InstanceBuilderTest {
 
     @Test
     public void name() throws Exception {
-        TestInterface test = new InstanceBuilder(new MockClient())
+        TestInterface test = new ScreechBuilder(new MockClient())
                 .build(TestInterface.class, new HardCodedTarget("http://localhost"));
 
         assertThat(test.syncGET()).isEqualTo("Hello world!");

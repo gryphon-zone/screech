@@ -21,6 +21,25 @@ public interface Callback<T> {
 
     void onSuccess(T result);
 
-    void onError(Throwable e);
+    void onFailure(Throwable e);
+
+    /**
+     * Functional version of {@link Callback}
+     *
+     * @param <T>
+     */
+    interface FunctionalCallback<T> extends Callback<T> {
+
+        default void onSuccess(T result) {
+            onComplete(result, null);
+        }
+
+        default void onFailure(Throwable e) {
+            onComplete(null, e);
+        }
+
+        void onComplete(T result, Throwable e);
+
+    }
 
 }

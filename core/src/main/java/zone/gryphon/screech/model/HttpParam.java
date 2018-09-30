@@ -17,23 +17,28 @@
 
 package zone.gryphon.screech.model;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.NonNull;
 import lombok.Value;
+
+import java.beans.ConstructorProperties;
+import java.util.Objects;
 
 @Value
 @Builder(toBuilder = true)
-@AllArgsConstructor
 public class HttpParam {
 
     public static HttpParam from(String key, String value) {
         return new HttpParam(key, value);
     }
 
-    @NonNull
     private final String key;
 
     private final String value;
+
+    @ConstructorProperties({"key", "value"})
+    public HttpParam(String key, String value) {
+        this.key = Objects.requireNonNull(key, "key may not be null");
+        this.value = value;
+    }
 
 }

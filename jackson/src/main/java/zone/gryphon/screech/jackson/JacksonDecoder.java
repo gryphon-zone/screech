@@ -67,7 +67,7 @@ public class JacksonDecoder implements ResponseDecoder {
         try (InputStream inputStream = new BufferedInputStream(buffer.createInputStream())) {
             callback.onSuccess(objectMapper.readValue(inputStream, objectMapper.constructType(type)));
         } catch (Throwable t) {
-            callback.onError(t);
+            callback.onFailure(t);
         }
     }
 

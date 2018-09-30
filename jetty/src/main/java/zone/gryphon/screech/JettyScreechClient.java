@@ -50,18 +50,18 @@ public class JettyScreechClient implements Client, Closeable {
 
         @Override
         public void onHeaders(Response response) {
-            contentCallback = callback.onHeaders(toScreechResponse(response));
+            contentCallback = callback.headers(toScreechResponse(response));
         }
 
         @Override
         public void onContent(Response response, ByteBuffer content) {
 
             if (contentCallback == null) {
-                log.error("content() called before onHeaders()"); // TODO replace slf4j
+                log.error("content() called before headers()"); // TODO replace slf4j
                 return;
             }
 
-            contentCallback.onContent(content);
+            contentCallback.content(content);
         }
 
         @Override

@@ -22,24 +22,30 @@ import java.nio.ByteBuffer;
 public interface ResponseDecoder {
 
     /**
-     * Called when content is available
+     * Called when content is available. This method may be invoked multiple times, as content becomes available.
      *
      * @param content The new content
      */
     void content(ByteBuffer content);
 
     /**
-     * Called when no more content is available, and the decoder should decode the content it received prior to this call
+     * Called when the client has finished reading response content.
+     * <p>
+     * The decoder should decode the content it received prior to this call and invoke the callback.
      */
     void complete();
 
     /**
-     * Called when the request failed while streaming content, and the decoder should discard any resources it had open.
+     * Called when the request failed while streaming content.
+     * <p>
+     * The decoder should discard any resources it had open before returning.
      *
      * <h3>Important:</h3>
      * The decoder should <i>not</i> call any methods on the response callback in this case, and should return after
      * clearing any resources it had open.
      */
-    void abort();
+    default void abort() {
+        // empty
+    }
 
 }

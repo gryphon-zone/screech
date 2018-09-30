@@ -41,13 +41,9 @@ public interface ResponseDecoderFactory {
 
                 @Override
                 public void complete() {
-                    callback.onError(new RuntimeException("We got errors, sir"));
+                    callback.onFailure(new RuntimeException("We got errors, sir"));
                 }
 
-                @Override
-                public void abort() {
-
-                }
             };
         }
     }
@@ -76,10 +72,6 @@ public interface ResponseDecoderFactory {
                     callback.onSuccess(new String(buffer.array()));
                 }
 
-                @Override
-                public void abort() {
-
-                }
             };
         }
     }
