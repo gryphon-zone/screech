@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.util.HardCodedTarget;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;

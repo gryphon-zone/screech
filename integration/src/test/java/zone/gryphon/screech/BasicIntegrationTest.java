@@ -33,6 +33,7 @@ import zone.gryphon.screech.jackson.JacksonDecoderFactory;
 import zone.gryphon.screech.jackson.JacksonEncoder;
 import zone.gryphon.screech.model.Request;
 import zone.gryphon.screech.model.Response;
+import zone.gryphon.screech.util.HardCodedTarget;
 
 import java.util.Arrays;
 import java.util.List;

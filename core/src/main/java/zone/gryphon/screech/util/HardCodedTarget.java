@@ -15,7 +15,9 @@
  *
  */
 
-package zone.gryphon.screech;
+package zone.gryphon.screech.util;
+
+import zone.gryphon.screech.Target;
 
 import java.net.URI;
 import java.net.URL;
@@ -30,7 +32,7 @@ public class HardCodedTarget implements Target {
     }
 
     public HardCodedTarget(String target) {
-        this.target = target;
+        this.target = Objects.requireNonNull(target, "target may not be null");
     }
 
     public HardCodedTarget(URI target) {

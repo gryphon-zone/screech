@@ -15,12 +15,22 @@
  *
  */
 
-package zone.gryphon.screech;
+package zone.gryphon.screech.util;
 
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import zone.gryphon.screech.Callback;
+import zone.gryphon.screech.Client;
+import zone.gryphon.screech.Header;
+import zone.gryphon.screech.Param;
+import zone.gryphon.screech.RequestEncoder;
+import zone.gryphon.screech.RequestInterceptor;
+import zone.gryphon.screech.RequestLine;
+import zone.gryphon.screech.ResponseDecoder;
+import zone.gryphon.screech.ResponseDecoderFactory;
+import zone.gryphon.screech.Target;
 import zone.gryphon.screech.exception.ScreechException;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.Request;
@@ -29,9 +39,6 @@ import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 import zone.gryphon.screech.internal.ClientCallbackImpl;
-import zone.gryphon.screech.util.SimpleStringInterpolator;
-import zone.gryphon.screech.util.StringInterpolator;
-import zone.gryphon.screech.util.Util;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
@@ -63,7 +70,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             Optional.class
     )));
 
-    static AsyncInvocationHandler from(
+    public static AsyncInvocationHandler from(
             Method method,
             RequestEncoder requestEncoder,
             List<RequestInterceptor> requestInterceptors,

@@ -84,7 +84,7 @@ public class AsyncInvocationHandlerInvocationTest {
     }
 
     @Test
-    public void testClassLevelHeader() throws Exception {
+    public void testClassLevelHeader() {
 
         ClassLevelHeader instance = new ScreechBuilder(client)
                 .requestEncoder(new RequestEncoder.StringRequestEncoder())

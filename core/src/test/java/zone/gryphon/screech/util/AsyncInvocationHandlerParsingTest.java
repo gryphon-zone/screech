@@ -15,15 +15,22 @@
  *
  */
 
-package zone.gryphon.screech;
+package zone.gryphon.screech.util;
 
 
 import org.junit.Test;
+import zone.gryphon.screech.Client;
+import zone.gryphon.screech.Header;
+import zone.gryphon.screech.Param;
+import zone.gryphon.screech.RequestEncoder;
+import zone.gryphon.screech.RequestInterceptor;
+import zone.gryphon.screech.RequestLine;
+import zone.gryphon.screech.ResponseDecoder;
+import zone.gryphon.screech.ResponseDecoderFactory;
+import zone.gryphon.screech.Target;
 import zone.gryphon.screech.model.HttpParam;
-import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,23 +45,11 @@ public class AsyncInvocationHandlerParsingTest {
 
     private List<RequestInterceptor> requestInterceptors = Collections.emptyList();
 
-    private ResponseDecoder responseDecoder = mock(ResponseDecoder.class);
-
     private ResponseDecoder errorDecoder = mock(ResponseDecoder.class);
 
-    private ResponseDecoderFactory errorDecoderFactory = new ResponseDecoderFactory() {
-        @Override
-        public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
-            return errorDecoder;
-        }
-    };
+    private ResponseDecoderFactory errorDecoderFactory = (response, type, callback) -> errorDecoder;
 
-    private ResponseDecoderFactory dcoderFactory = new ResponseDecoderFactory() {
-        @Override
-        public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
-            return errorDecoder;
-        }
-    };
+    private ResponseDecoderFactory dcoderFactory = (response, type, callback) -> errorDecoder;
 
     private Client client = mock(Client.class);
 
