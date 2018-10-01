@@ -27,7 +27,7 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>screech-integration</artifactId>
+    <artifactId>screech-gson</artifactId>
 
     <dependencyManagement>
         <dependencies>
@@ -48,14 +48,9 @@
         </dependency>
 
         <dependency>
-            <groupId>zone.gryphon</groupId>
-            <artifactId>screech-jackson2</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
-        <dependency>
-            <groupId>zone.gryphon</groupId>
-            <artifactId>screech-jetty</artifactId>
-        </dependency>
-
 
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -86,10 +81,6 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

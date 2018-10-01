@@ -15,7 +15,7 @@
  *
  */
 
-package zone.gryphon.screech.jackson;
+package zone.gryphon.screech.jackson2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import zone.gryphon.screech.Callback;
