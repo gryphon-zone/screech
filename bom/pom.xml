@@ -39,7 +39,7 @@
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
-                <artifactId>screech-jackson</artifactId>
+                <artifactId>screech-jackson2</artifactId>
                 <version>0.1-SNAPSHOT</version>
             </dependency>
             <dependency>

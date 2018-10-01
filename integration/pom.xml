@@ -49,7 +49,7 @@
 
         <dependency>
             <groupId>zone.gryphon</groupId>
-            <artifactId>screech-jackson</artifactId>
+            <artifactId>screech-jackson2</artifactId>
         </dependency>
         <dependency>
             <groupId>zone.gryphon</groupId>

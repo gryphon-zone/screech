@@ -27,7 +27,7 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>screech-jackson</artifactId>
+    <artifactId>screech-jackson2</artifactId>
 
     <dependencyManagement>
         <dependencies>

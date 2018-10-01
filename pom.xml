@@ -39,7 +39,7 @@
         <module>bom</module>
         <module>build-bom</module>
         <module>core</module>
-        <module>jackson</module>
+        <module>jackson2</module>
         <module>jetty</module>
         <module>integration</module>
     </modules>
