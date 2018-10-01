@@ -58,7 +58,11 @@ public class ExpandableByteBuffer {
 
     private ByteBuffer resize(int additionalCapacity) {
         ByteBuffer b = ByteBuffer.allocate(buffer.capacity() + additionalCapacity);
-        buffer.position(0);
+
+        if (buffer.position() != 0) {
+            buffer.position(0);
+        }
+
         b.put(buffer);
         return b;
     }

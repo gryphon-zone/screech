@@ -27,7 +27,7 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>screech-jackson2</artifactId>
+    <artifactId>screech-gson2</artifactId>
 
     <dependencyManagement>
         <dependencies>
@@ -48,8 +48,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
         </dependency>
 
         <dependency>
@@ -67,7 +67,6 @@
             <artifactId>screech-test-utilities</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
@@ -95,6 +94,4 @@
         </dependency>
 
     </dependencies>
-
-
 </project>
