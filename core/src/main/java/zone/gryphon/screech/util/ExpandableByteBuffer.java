@@ -18,6 +18,7 @@
 package zone.gryphon.screech.util;
 
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 public class ExpandableByteBuffer {
@@ -59,9 +60,10 @@ public class ExpandableByteBuffer {
     private ByteBuffer resize(int additionalCapacity) {
         ByteBuffer b = ByteBuffer.allocate(buffer.capacity() + additionalCapacity);
 
-        if (buffer.position() != 0) {
-            buffer.position(0);
-        }
+        // need to cast to a buffer because of a breaking change in JDK9:
+        // https://github.com/plasma-umass/doppio/issues/497#issuecomment-334740243
+        //noinspection RedundantCast
+        ((Buffer) buffer).position(0);
 
         b.put(buffer);
         return b;
@@ -80,7 +82,10 @@ public class ExpandableByteBuffer {
     }
 
     public void clear() {
-        this.buffer.clear();
+        // need to cast to a buffer because of a breaking change in JDK9:
+        // https://github.com/plasma-umass/doppio/issues/497#issuecomment-334740243
+        //noinspection RedundantCast
+        ((Buffer) this.buffer).clear();
     }
 
     public InputStream createInputStream() {
