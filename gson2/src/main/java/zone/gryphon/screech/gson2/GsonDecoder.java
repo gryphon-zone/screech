@@ -15,23 +15,24 @@
  *
  */
 
-package zone.gryphon.screech.jackson2;
+package zone.gryphon.screech.gson2;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.util.ExpandableByteBuffer;
 
-import java.io.BufferedInputStream;
-import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
-public class JacksonDecoder implements ResponseDecoder {
+public class GsonDecoder implements ResponseDecoder {
 
-    private final ObjectMapper objectMapper;
+    private final Gson gson;
 
     private final Type type;
 
@@ -39,8 +40,8 @@ public class JacksonDecoder implements ResponseDecoder {
 
     private final ExpandableByteBuffer buffer;
 
-    JacksonDecoder(ObjectMapper objectMapper, ResponseHeaders responseHeaders, Type type, Callback<Object> callback) {
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+    public GsonDecoder(Gson gson, ResponseHeaders responseHeaders, Type type, Callback<Object> callback) {
+        this.gson = Objects.requireNonNull(gson, "gson");
         this.type = Objects.requireNonNull(type, "type");
         this.callback = Objects.requireNonNull(callback, "callback");
 
@@ -64,8 +65,8 @@ public class JacksonDecoder implements ResponseDecoder {
     public void complete() {
 
         // since backing buffer for stream is in-memory, it should never block, and therefore it should be safe to call
-        try (InputStream inputStream = new BufferedInputStream(buffer.createInputStream())) {
-            callback.onSuccess(objectMapper.readValue(inputStream, objectMapper.constructType(type)));
+        try (Reader reader = new BufferedReader(new InputStreamReader(buffer.createInputStream()))) {
+            callback.onSuccess(gson.fromJson(reader, type));
         } catch (Throwable t) {
             callback.onFailure(t);
         }

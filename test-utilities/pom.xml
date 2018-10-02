@@ -27,33 +27,51 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <packaging>pom</packaging>
-    <artifactId>screech-bom</artifactId>
+    <artifactId>screech-test-utilities</artifactId>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>zone.gryphon</groupId>
-                <artifactId>screech-core</artifactId>
+                <artifactId>screech-build-bom</artifactId>
                 <version>0.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>zone.gryphon</groupId>
-                <artifactId>screech-jackson2</artifactId>
-                <version>0.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>zone.gryphon</groupId>
-                <artifactId>screech-jetty</artifactId>
-                <version>0.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>zone.gryphon</groupId>
-                <artifactId>screech-test-utilities</artifactId>
-                <version>0.1-SNAPSHOT</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>zone.gryphon</groupId>
+            <artifactId>screech-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 
 
 </project>
