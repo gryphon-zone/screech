@@ -171,14 +171,12 @@ public abstract class BaseJsonSerializerTest {
 
     @Test
     public void testSerializeBooleanTrue() {
-        String expected = "true";
-        testSuccessfulSerialization(true, expected);
+        testSuccessfulSerialization(true, Boolean.toString(true));
     }
 
     @Test
     public void testSerializeBooleanFalse() {
-        String expected = "false";
-        testSuccessfulSerialization(false, expected);
+        testSuccessfulSerialization(false, Boolean.toString(false));
     }
 
     @Test
