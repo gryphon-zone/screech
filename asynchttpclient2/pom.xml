@@ -27,7 +27,7 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>screech-integration</artifactId>
+    <artifactId>screech-async-httpclient2</artifactId>
 
     <dependencyManagement>
         <dependencies>
@@ -48,22 +48,10 @@
         </dependency>
 
         <dependency>
-            <groupId>zone.gryphon</groupId>
-            <artifactId>screech-jackson2</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>zone.gryphon</groupId>
-            <artifactId>screech-jetty</artifactId>
+            <groupId>org.asynchttpclient</groupId>
+            <artifactId>async-http-client</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>zone.gryphon</groupId>
-            <artifactId>screech-async-httpclient2</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>zone.gryphon</groupId>
-            <artifactId>screech-gson2</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -94,10 +82,6 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

@@ -36,6 +36,7 @@
     </properties>
 
     <modules>
+        <module>asynchttpclient2</module>
         <module>bom</module>
         <module>build-bom</module>
         <module>core</module>

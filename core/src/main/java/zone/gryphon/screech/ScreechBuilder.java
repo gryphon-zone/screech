@@ -18,6 +18,7 @@
 package zone.gryphon.screech;
 
 import lombok.NonNull;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.util.AsyncInvocationHandler;
 
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
+@ToString
 public class ScreechBuilder {
 
     private RequestEncoder requestEncoder = new RequestEncoder.StringRequestEncoder();

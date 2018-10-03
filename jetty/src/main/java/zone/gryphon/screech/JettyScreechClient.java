@@ -150,4 +150,8 @@ public class JettyScreechClient implements Client, Closeable {
         return jettyRequest;
     }
 
+    @Override
+    public String toString() {
+        return "JettyScreechClient{HttpClient@" + client.hashCode() + '}';
+    }
 }

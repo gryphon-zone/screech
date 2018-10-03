@@ -75,4 +75,9 @@ public class JacksonDecoder implements ResponseDecoder {
     public void abort() {
         this.buffer.clear();
     }
+
+    @Override
+    public String toString() {
+        return "JacksonDecoder{ObjectMapper@" + objectMapper.hashCode() + '}';
+    }
 }

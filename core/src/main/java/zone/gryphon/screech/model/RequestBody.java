@@ -18,6 +18,7 @@
 package zone.gryphon.screech.model;
 
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 import java.nio.ByteBuffer;
@@ -26,8 +27,10 @@ import java.nio.ByteBuffer;
 @Builder(toBuilder = true)
 public class RequestBody {
 
+    @NonNull
     private final ByteBuffer body;
 
+    @NonNull
     private final String contentType;
 
 }

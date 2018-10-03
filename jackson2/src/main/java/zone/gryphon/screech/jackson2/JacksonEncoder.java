@@ -44,4 +44,9 @@ public class JacksonEncoder implements RequestEncoder {
             callback.onFailure(e);
         }
     }
+
+    @Override
+    public String toString() {
+        return "JacksonEncoder{ObjectMapper@" + objectMapper.hashCode() + '}';
+    }
 }
