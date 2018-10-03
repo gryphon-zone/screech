@@ -20,6 +20,7 @@ package zone.gryphon.screech.testing;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import zone.gryphon.screech.Callback;
@@ -28,6 +29,7 @@ import zone.gryphon.screech.ResponseDecoderFactory;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.ResponseHeaders;
 
+import java.beans.ConstructorProperties;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
@@ -64,6 +66,18 @@ public abstract class BaseJsonDeserializerTest {
     public static class MutableWidget {
 
         private String foo;
+
+    }
+
+    @Value
+    public static class ImmutableWidget {
+
+        private final String foo;
+
+        @ConstructorProperties("foo")
+        public ImmutableWidget(String foo) {
+            this.foo = foo;
+        }
 
     }
 
@@ -136,12 +150,21 @@ public abstract class BaseJsonDeserializerTest {
     }
 
     @Test
-    public void testObjectDeserialization() {
+    public void testMutableObjectDeserialization() {
         String json = "{\"foo\":\"bar\"}";
 
         Object expectedResult = new MutableWidget("bar");
 
         testSuccessfulDeserialization(MutableWidget.class, json, expectedResult);
+    }
+
+    @Test
+    public void testImmutableObjectDeserialization() {
+        String json = "{\"foo\":\"bar\"}";
+
+        Object expectedResult = new ImmutableWidget("bar");
+
+        testSuccessfulDeserialization(ImmutableWidget.class, json, expectedResult);
     }
 
     @Test
