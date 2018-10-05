@@ -28,7 +28,6 @@ import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -36,7 +35,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class JettyScreechClient implements Client, Closeable {
+public class JettyScreechClient implements Client {
 
     private static class PassThroughResponseAdapter extends Response.Listener.Adapter {
 

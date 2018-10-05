@@ -21,6 +21,9 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import zone.gryphon.screech.Client;
@@ -34,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -55,10 +59,23 @@ public abstract class BaseClientTest {
         return new String(copy, UTF_8);
     }
 
+    private Client client;
+
+    @Before
+    public void setUp() {
+        client = Objects.requireNonNull(createClient(), "Failed to create client");
+        log.info("Testing client {}", client);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        if (client != null) {
+            client.close();
+        }
+    }
+
     @Test
     public void sanityTest() throws Throwable {
-        Client client = createClient();
-
         CompletableFuture<String> future = new CompletableFuture<>();
 
         server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
@@ -81,7 +98,7 @@ public abstract class BaseClientTest {
         server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
         server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
 
-        createClient().request(request("GET", "/foo/bar"), callbackForSuccessfulTextRequest(future));
+        client.request(request("GET", "/foo/bar"), callbackForSuccessfulTextRequest(future));
 
         try {
             assertThat(future.get()).isEqualTo("this is the expected body");
@@ -100,7 +117,7 @@ public abstract class BaseClientTest {
         server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
         server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
 
-        createClient().request(request("POST", "/foo/bar"), callbackForSuccessfulTextRequest(future));
+        client.request(request("POST", "/foo/bar"), callbackForSuccessfulTextRequest(future));
 
         try {
             assertThat(future.get()).isEqualTo("this is the expected body");
@@ -119,7 +136,7 @@ public abstract class BaseClientTest {
         server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
         server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
 
-        createClient().request(request("PUT", "/foo/bar"), callbackForSuccessfulTextRequest(future));
+        client.request(request("PUT", "/foo/bar"), callbackForSuccessfulTextRequest(future));
 
         try {
             assertThat(future.get()).isEqualTo("this is the expected body");
@@ -138,7 +155,7 @@ public abstract class BaseClientTest {
         server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz?baz=bibbly"));
         server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
 
-        createClient().request(request("PUT", "/foo/bar", Collections.singletonMap("foo", "bar")), callbackForSuccessfulTextRequest(future));
+        client.request(request("PUT", "/foo/bar", Collections.singletonMap("foo", "bar")), callbackForSuccessfulTextRequest(future));
 
         try {
             assertThat(future.get()).isEqualTo("this is the expected body");

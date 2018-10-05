@@ -28,7 +28,6 @@ import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Iterator;
@@ -39,7 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class AsyncHttpScreechClient implements Client, Closeable {
+public class AsyncHttpScreechClient implements Client {
 
     private static AsyncHttpClient buildAndConfigureClient() {
         DefaultAsyncHttpClientConfig.Builder builder = new DefaultAsyncHttpClientConfig.Builder()
