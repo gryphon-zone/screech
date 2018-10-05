@@ -89,6 +89,7 @@ public class JettyScreechClient implements Client, Closeable {
         HttpClient client = new HttpClient();
         client.setMaxConnectionsPerDestination(Short.MAX_VALUE);
         client.setMaxRequestsQueuedPerDestination(Short.MAX_VALUE);
+        client.setFollowRedirects(true);
         return client;
     }
 

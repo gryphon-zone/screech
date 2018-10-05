@@ -21,6 +21,7 @@ import io.netty.handler.codec.http.HttpHeaders;
 import org.asynchttpclient.AsyncHandler;
 import org.asynchttpclient.AsyncHttpClient;
 import org.asynchttpclient.BoundRequestBuilder;
+import org.asynchttpclient.DefaultAsyncHttpClientConfig;
 import org.asynchttpclient.HttpResponseBodyPart;
 import org.asynchttpclient.HttpResponseStatus;
 import zone.gryphon.screech.model.HttpParam;
@@ -29,6 +30,7 @@ import zone.gryphon.screech.model.SerializedRequest;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +41,18 @@ import java.util.stream.StreamSupport;
 
 public class AsyncHttpScreechClient implements Client, Closeable {
 
+    private static AsyncHttpClient buildAndConfigureClient() {
+        DefaultAsyncHttpClientConfig.Builder builder = new DefaultAsyncHttpClientConfig.Builder()
+                .setConnectTimeout((int) Duration.ofSeconds(15).toMillis())
+                .setFollowRedirect(true);
+
+        return org.asynchttpclient.Dsl.asyncHttpClient(builder);
+    }
+
     private final AsyncHttpClient asyncHttpClient;
 
     public AsyncHttpScreechClient() {
-        this(org.asynchttpclient.Dsl.asyncHttpClient());
+        this(buildAndConfigureClient());
     }
 
     public AsyncHttpScreechClient(AsyncHttpClient asyncHttpClient) {
