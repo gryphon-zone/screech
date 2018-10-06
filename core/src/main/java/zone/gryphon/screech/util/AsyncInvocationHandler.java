@@ -402,18 +402,17 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         for (int i = 0; i < parameterAnnotations.length; i++) {
 
-            Set<Param> params = Arrays.stream(parameterAnnotations[i])
+            // `Param` isn't repeatable, so there should only ever be exactly 1
+            Optional<Param> params = Arrays.stream(parameterAnnotations[i])
                     .filter(annotation -> annotation instanceof Param)
                     .map(annotation -> (Param) annotation)
-                    .collect(Collectors.toSet());
+                    .findAny();
 
-            if (params.isEmpty()) {
+            if (!params.isPresent()) {
                 continue;
             }
 
-            // already make sure the collection wasn't empty, so don't need to do an "isPresent" check.
-            // Also, `Param` isn't repeatable, so there should only ever be exactly 1
-            Param param = params.stream().findAny().get();
+            Param param = params.get();
 
             nameSuppliers[i] = param::value;
 

@@ -56,6 +56,14 @@
             <artifactId>screech-jetty</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>zone.gryphon</groupId>
+            <artifactId>screech-async-httpclient2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>zone.gryphon</groupId>
+            <artifactId>screech-gson2</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>

@@ -44,4 +44,9 @@ public class JacksonDecoderFactory implements ResponseDecoderFactory {
         return new JacksonDecoder(mapper, response, type, callback);
     }
 
+    @Override
+    public String toString() {
+        return "JacksonDecoderFactory{ObjectMapper@" + mapper.hashCode() + '}';
+    }
+
 }

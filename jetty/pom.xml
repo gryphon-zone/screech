@@ -88,6 +88,11 @@
             <artifactId>jul-to-slf4j</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>zone.gryphon</groupId>
+            <artifactId>screech-test-utilities</artifactId>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 

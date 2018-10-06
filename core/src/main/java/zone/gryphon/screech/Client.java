@@ -20,11 +20,23 @@ package zone.gryphon.screech;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public interface Client {
+public interface Client extends Closeable {
 
     void request(SerializedRequest request, ClientCallback callback);
+
+    /**
+     * Release resources that this client currently has open, if any
+     * <p>
+     * No further methods can be called on the client after this is invoked.
+     */
+    @Override
+    default void close() throws IOException {
+        // do nothing
+    }
 
     /**
      * Callback clients can use to return data about the request

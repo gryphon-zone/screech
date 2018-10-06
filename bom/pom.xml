@@ -39,6 +39,16 @@
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
+                <artifactId>screech-async-httpclient2</artifactId>
+                <version>0.1-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>zone.gryphon</groupId>
+                <artifactId>screech-gson2</artifactId>
+                <version>0.1-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>zone.gryphon</groupId>
                 <artifactId>screech-jackson2</artifactId>
                 <version>0.1-SNAPSHOT</version>
             </dependency>

@@ -35,7 +35,7 @@ public class ExpandableByteBuffer {
             throw new IllegalArgumentException("Unable to allocate a buffer of size " + initialSize);
         }
 
-        return new ExpandableByteBuffer((int) initialSize);
+        return new ExpandableByteBuffer(Math.toIntExact(initialSize));
     }
 
     public static ExpandableByteBuffer create(int initialSize) {

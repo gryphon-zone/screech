@@ -15,22 +15,14 @@
  *
  */
 
-package zone.gryphon.screech.model;
+package zone.gryphon.screech;
 
-import lombok.Builder;
-import lombok.NonNull;
-import lombok.Value;
+import zone.gryphon.screech.testing.BaseClientTest;
 
-import java.nio.ByteBuffer;
+public class AsyncHttpScreechClientTest extends BaseClientTest {
 
-@Value
-@Builder(toBuilder = true)
-public class RequestBody {
-
-    @NonNull
-    private final ByteBuffer body;
-
-    @NonNull
-    private final String contentType;
-
+    @Override
+    protected Client createClient() {
+        return new AsyncHttpScreechClient();
+    }
 }

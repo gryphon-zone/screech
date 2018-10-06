@@ -22,7 +22,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.RequestEncoder;
 
@@ -44,7 +48,12 @@ import static org.mockito.Mockito.verify;
 @Slf4j
 public abstract class BaseJsonSerializerTest {
 
-    protected abstract RequestEncoder createEncoder();
+    static {
+        if (!SLF4JBridgeHandler.isInstalled()) {
+            SLF4JBridgeHandler.removeHandlersForRootLogger();
+            SLF4JBridgeHandler.install();
+        }
+    }
 
     @Data
     @NoArgsConstructor
@@ -73,6 +82,20 @@ public abstract class BaseJsonSerializerTest {
         }
 
     }
+
+    protected abstract RequestEncoder createEncoder();
+
+    private RequestEncoder requestEncoder;
+
+    @Before
+    public void setUp() {
+        this.requestEncoder = createEncoder();
+        log.info("Running test {} using {}", testName.getMethodName(), requestEncoder);
+    }
+
+
+    @Rule
+    public final TestName testName = new TestName();
 
     private Callback<ByteBuffer> setupCallback(AtomicReference<String> ref) {
 
@@ -104,7 +127,7 @@ public abstract class BaseJsonSerializerTest {
 
         Callback<ByteBuffer> callback = setupCallback(buffer);
 
-        createEncoder().encode(o, callback);
+        requestEncoder.encode(o, callback);
 
         // wait up to 5 seconds for results, in case serializer is async
         verify(callback, timeout(Duration.ofSeconds(5).toMillis())).onSuccess(any());
@@ -127,7 +150,7 @@ public abstract class BaseJsonSerializerTest {
             return null;
         }).when(callback).onSuccess(any());
 
-        createEncoder().encode(o, callback);
+        requestEncoder.encode(o, callback);
 
         // wait up to 5 seconds for results, in case serializer is async
         verify(callback, timeout(Duration.ofSeconds(5).toMillis())).onFailure(any());

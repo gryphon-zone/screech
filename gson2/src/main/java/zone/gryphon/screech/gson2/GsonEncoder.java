@@ -47,4 +47,9 @@ public class GsonEncoder implements RequestEncoder {
             callback.onFailure(t);
         }
     }
+
+    @Override
+    public String toString() {
+        return "GsonEncoder{Gson@" + gson.hashCode() + '}';
+    }
 }

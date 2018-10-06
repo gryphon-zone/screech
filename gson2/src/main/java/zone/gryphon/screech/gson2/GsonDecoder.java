@@ -76,4 +76,9 @@ public class GsonDecoder implements ResponseDecoder {
     public void abort() {
         this.buffer.clear();
     }
+
+    @Override
+    public String toString() {
+        return "GsonDecoder{Gson@" + gson.hashCode() + '}';
+    }
 }

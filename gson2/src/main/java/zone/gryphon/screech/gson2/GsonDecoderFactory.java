@@ -44,4 +44,9 @@ public class GsonDecoderFactory implements ResponseDecoderFactory {
         return new GsonDecoder(gson, response, type, callback);
     }
 
+    @Override
+    public String toString() {
+        return "GsonDecoderFactory{Gson@" + gson.hashCode() + '}';
+    }
+
 }

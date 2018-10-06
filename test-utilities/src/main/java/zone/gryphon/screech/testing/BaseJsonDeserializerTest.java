@@ -22,7 +22,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.ResponseDecoderFactory;
@@ -50,8 +54,14 @@ import static org.mockito.Mockito.verify;
 @Slf4j
 public abstract class BaseJsonDeserializerTest {
 
-    protected abstract ResponseDecoderFactory createFactory();
+    static {
+        if (!SLF4JBridgeHandler.isInstalled()) {
+            SLF4JBridgeHandler.removeHandlersForRootLogger();
+            SLF4JBridgeHandler.install();
+        }
+    }
 
+    @SuppressWarnings("unused")
     public abstract class TypeToken<T> {
 
         public Type getType() {
@@ -81,72 +91,17 @@ public abstract class BaseJsonDeserializerTest {
 
     }
 
-    private ResponseHeaders successfulResponse() {
-        return ResponseHeaders.builder()
-                .headers(Collections.singletonList(new HttpParam("Content-Type", "application/json")))
-                .status(200)
-                .build();
-    }
+    protected abstract ResponseDecoderFactory createFactory();
 
-    private void testSuccessfulDeserialization(Type type, String value, Object expectedResult) {
-        Callback<Object> callback = setupCallback();
+    @Rule
+    public final TestName testName = new TestName();
 
-        ResponseDecoder responseDecoder = createFactory().create(successfulResponse(), type, callback);
+    private ResponseDecoderFactory factory;
 
-        verify(callback, times(0)).onFailure(any());
-        verify(callback, times(0)).onSuccess(any());
-
-        // ensure that calling the method with empty byte buffers doesn't cause weird side effects.
-        // 10 iterations is arbitrarily chosen
-        for (int i = 0; i < 10; i++) {
-            responseDecoder.content(ByteBuffer.allocate(0));
-        }
-
-        // sending the data as individual bytes tests that the deserializers can handle multiple invocations of `content`
-        for (byte b : value.getBytes(UTF_8)) {
-            responseDecoder.content(ByteBuffer.wrap(new byte[]{b}));
-        }
-
-        responseDecoder.complete();
-
-        verify(callback, times(0)).onFailure(any());
-        verify(callback, times(1)).onSuccess(expectedResult);
-    }
-
-    private void testFailedDeserialization(Type type, String json) {
-        @SuppressWarnings("unchecked")
-        Callback<Object> callback = mock(Callback.class);
-
-        doAnswer(invocationOnMock -> {
-            log.debug("Caught expected exception", invocationOnMock.getArguments()[0]);
-            return null;
-        }).when(callback).onFailure(any());
-
-        ResponseDecoder responseDecoder = createFactory().create(successfulResponse(), type, callback);
-
-        verify(callback, times(0)).onFailure(any());
-        verify(callback, times(0)).onSuccess(any());
-
-        responseDecoder.content(ByteBuffer.wrap(json.getBytes(UTF_8)));
-
-        responseDecoder.complete();
-
-        verify(callback, times(1)).onFailure(any());
-        verify(callback, times(0)).onSuccess(any());
-    }
-
-    private Callback<Object> setupCallback() {
-
-        @SuppressWarnings("unchecked")
-        Callback<Object> callback = mock(Callback.class);
-
-        doAnswer(invocationOnMock -> {
-            log.error("Unexpected exception", invocationOnMock.getArguments()[0]);
-            return null;
-        }).when(callback).onFailure(any());
-
-        return callback;
-
+    @Before
+    public void setUp() {
+        this.factory = createFactory();
+        log.info("Running test {} using {}", testName.getMethodName(), factory);
     }
 
     @Test
@@ -237,31 +192,52 @@ public abstract class BaseJsonDeserializerTest {
     }
 
     @Test
-    public void testWithInvalidJsonMissingHalf() {
+    public void testMutableWithInvalidJsonMissingHalf() {
         String json = "{\"foo\"";
 
         testFailedDeserialization(MutableWidget.class, json);
     }
 
     @Test
-    public void testWithInvalidJsonNoValueInObject() {
+    public void testMutableWithInvalidJsonNoValueInObject() {
         String json = "{\"foo\"}";
 
         testFailedDeserialization(MutableWidget.class, json);
     }
 
     @Test
-    public void testWithInvalidJsonIncorrectType() {
+    public void testMutableWithInvalidJsonIncorrectType() {
         String json = "123";
 
         testFailedDeserialization(MutableWidget.class, json);
     }
 
     @Test
-    public void tesAbortCallsNothing() {
+    public void testImmutableWithInvalidJsonMissingHalf() {
+        String json = "{\"foo\"";
+
+        testFailedDeserialization(ImmutableWidget.class, json);
+    }
+
+    @Test
+    public void testImmutableWithInvalidJsonNoValueInObject() {
+        String json = "{\"foo\"}";
+
+        testFailedDeserialization(ImmutableWidget.class, json);
+    }
+
+    @Test
+    public void testImmutableWithInvalidJsonIncorrectType() {
+        String json = "123";
+
+        testFailedDeserialization(ImmutableWidget.class, json);
+    }
+
+    @Test
+    public void testAbortCallsNothing() {
         Callback<Object> callback = setupCallback();
 
-        ResponseDecoder responseDecoder = createFactory().create(successfulResponse(), MutableWidget.class, callback);
+        ResponseDecoder responseDecoder = factory.create(successfulResponse(), MutableWidget.class, callback);
 
         verify(callback, times(0)).onFailure(any());
         verify(callback, times(0)).onSuccess(any());
@@ -273,10 +249,10 @@ public abstract class BaseJsonDeserializerTest {
     }
 
     @Test
-    public void tesAbortAfterContentCallsNothing() {
+    public void testAbortAfterContentCallsNothing() {
         Callback<Object> callback = setupCallback();
 
-        ResponseDecoder responseDecoder = createFactory().create(successfulResponse(), MutableWidget.class, callback);
+        ResponseDecoder responseDecoder = factory.create(successfulResponse(), MutableWidget.class, callback);
 
         verify(callback, times(0)).onFailure(any());
         verify(callback, times(0)).onSuccess(any());
@@ -286,5 +262,74 @@ public abstract class BaseJsonDeserializerTest {
 
         verify(callback, times(0)).onFailure(any());
         verify(callback, times(0)).onSuccess(any());
+    }
+
+    private ResponseHeaders successfulResponse() {
+        return ResponseHeaders.builder()
+                .headers(Collections.singletonList(new HttpParam("Content-Type", "application/json")))
+                .status(200)
+                .build();
+    }
+
+    private void testSuccessfulDeserialization(Type type, String value, Object expectedResult) {
+        Callback<Object> callback = setupCallback();
+
+        ResponseDecoder responseDecoder = factory.create(successfulResponse(), type, callback);
+        log.debug("Factory created response decoder {}", responseDecoder);
+
+        verify(callback, times(0)).onFailure(any());
+        verify(callback, times(0)).onSuccess(any());
+
+        // ensure that calling the method with empty byte buffers doesn't cause weird side effects.
+        // 10 iterations is arbitrarily chosen
+        for (int i = 0; i < 10; i++) {
+            responseDecoder.content(ByteBuffer.allocate(0));
+        }
+
+        // sending the data as individual bytes tests that the deserializers can handle multiple invocations of `content`
+        for (byte b : value.getBytes(UTF_8)) {
+            responseDecoder.content(ByteBuffer.wrap(new byte[]{b}));
+        }
+
+        responseDecoder.complete();
+
+        verify(callback, times(0)).onFailure(any());
+        verify(callback, times(1)).onSuccess(expectedResult);
+    }
+
+    private void testFailedDeserialization(Type type, String json) {
+        @SuppressWarnings("unchecked")
+        Callback<Object> callback = mock(Callback.class);
+
+        doAnswer(invocationOnMock -> {
+            log.debug("Caught expected exception", invocationOnMock.getArguments()[0]);
+            return null;
+        }).when(callback).onFailure(any());
+
+        ResponseDecoder responseDecoder = factory.create(successfulResponse(), type, callback);
+
+        verify(callback, times(0)).onFailure(any());
+        verify(callback, times(0)).onSuccess(any());
+
+        responseDecoder.content(ByteBuffer.wrap(json.getBytes(UTF_8)));
+
+        responseDecoder.complete();
+
+        verify(callback, times(1)).onFailure(any());
+        verify(callback, times(0)).onSuccess(any());
+    }
+
+    private Callback<Object> setupCallback() {
+
+        @SuppressWarnings("unchecked")
+        Callback<Object> callback = mock(Callback.class);
+
+        doAnswer(invocationOnMock -> {
+            log.error("Unexpected exception", invocationOnMock.getArguments()[0]);
+            return null;
+        }).when(callback).onFailure(any());
+
+        return callback;
+
     }
 }

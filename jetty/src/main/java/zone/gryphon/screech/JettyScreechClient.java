@@ -17,7 +17,6 @@
 
 package zone.gryphon.screech;
 
-import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.api.Response;
@@ -28,15 +27,13 @@ import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-@Slf4j
-public class JettyScreechClient implements Client, Closeable {
+public class JettyScreechClient implements Client {
 
     private static class PassThroughResponseAdapter extends Response.Listener.Adapter {
 
@@ -55,12 +52,7 @@ public class JettyScreechClient implements Client, Closeable {
 
         @Override
         public void onContent(Response response, ByteBuffer content) {
-
-            if (contentCallback == null) {
-                log.error("content() called before headers()"); // TODO replace slf4j
-                return;
-            }
-
+            // onContent should _always_ be called after onHeaders
             contentCallback.content(content);
         }
 
@@ -89,6 +81,7 @@ public class JettyScreechClient implements Client, Closeable {
         HttpClient client = new HttpClient();
         client.setMaxConnectionsPerDestination(Short.MAX_VALUE);
         client.setMaxRequestsQueuedPerDestination(Short.MAX_VALUE);
+        client.setFollowRedirects(true);
         return client;
     }
 
@@ -150,4 +143,8 @@ public class JettyScreechClient implements Client, Closeable {
         return jettyRequest;
     }
 
+    @Override
+    public String toString() {
+        return "JettyScreechClient{HttpClient@" + client.hashCode() + '}';
+    }
 }
