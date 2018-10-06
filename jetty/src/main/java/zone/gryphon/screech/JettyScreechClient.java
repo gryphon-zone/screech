@@ -17,7 +17,6 @@
 
 package zone.gryphon.screech;
 
-import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.api.Response;
@@ -34,7 +33,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-@Slf4j
 public class JettyScreechClient implements Client {
 
     private static class PassThroughResponseAdapter extends Response.Listener.Adapter {
@@ -54,12 +52,7 @@ public class JettyScreechClient implements Client {
 
         @Override
         public void onContent(Response response, ByteBuffer content) {
-
-            if (contentCallback == null) {
-                log.error("content() called before headers()"); // TODO replace slf4j
-                return;
-            }
-
+            // onContent should _always_ be called after onHeaders
             contentCallback.content(content);
         }
 

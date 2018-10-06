@@ -17,54 +17,77 @@
 
 package zone.gryphon.screech.testing;
 
+import junit.framework.TestCase;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 import zone.gryphon.screech.Client;
 import zone.gryphon.screech.model.HttpParam;
+import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.util.ExpandableByteBuffer;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.ConnectException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 
 @Slf4j
 public abstract class BaseClientTest {
 
-    @Rule
-    public MockWebServer server = new MockWebServer();
+    static {
+        if (!SLF4JBridgeHandler.isInstalled()) {
+            SLF4JBridgeHandler.removeHandlersForRootLogger();
+            SLF4JBridgeHandler.install();
+        }
+    }
+
+    private static final String[] HTTP_METHODS = {
+            "GET", "PUT", "POST", "DELETE"
+    };
+
+    private static final String BODY = "this is the expected message body";
 
     protected abstract Client createClient();
 
-    private static String toString(ByteBuffer buffer) {
-        byte[] copy = new byte[buffer.remaining()];
-        buffer.duplicate().get(copy);
-        return new String(copy, UTF_8);
-    }
+    @Rule
+    public final MockWebServer server = new MockWebServer();
+
+    @Rule
+    public final TestName testName = new TestName();
 
     private Client client;
 
     @Before
     public void setUp() {
         client = Objects.requireNonNull(createClient(), "Failed to create client");
-        log.info("Testing client {}", client);
+        log.info("Running test {} using client {}", testName.getMethodName(), client);
     }
 
     @After
@@ -75,77 +98,136 @@ public abstract class BaseClientTest {
     }
 
     @Test
-    public void sanityTest() throws Throwable {
+    public void testSimpleGET() throws Throwable {
         CompletableFuture<String> future = new CompletableFuture<>();
 
-        server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
 
-        client.request(request("GET", "/foo/bar"), callbackForSuccessfulTextRequest(future));
+        client.request(request("GET", "/foo/bar"), callback(future));
 
-        try {
-            assertThat(future.get()).isEqualTo("this is the expected body");
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
+        assertThat(unwrap(future)).isEqualTo(BODY);
 
         assertThat(server.takeRequest().getPath()).isEqualTo("/foo/bar");
     }
 
     @Test
-    public void testSimpleRedirect() throws Throwable {
+    public void testSimpleQueryParams() throws Throwable {
         CompletableFuture<String> future = new CompletableFuture<>();
 
-        server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
-        server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
 
-        client.request(request("GET", "/foo/bar"), callbackForSuccessfulTextRequest(future));
+        List<HttpParam> queryParams = Arrays.asList(
+                HttpParam.from("foo", "bar"),
+                HttpParam.from("bar", "baz"),
+                HttpParam.from("baz", "bibbly"));
 
-        try {
-            assertThat(future.get()).isEqualTo("this is the expected body");
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
+        client.request(request("GET", "/foo", queryParams), callback(future));
 
-        verifyRequest("GET", "/foo/bar", null, null);
-        verifyRequest("GET", "/bar/baz", null, null);
+        assertThat(unwrap(future)).isEqualTo(BODY);
+
+        verifyRequest("GET", "/foo", null, queryParams, null);
     }
 
     @Test
-    public void testPOSTRedirect() throws Throwable {
+    public void testDuplicatedQueryParams() throws Throwable {
         CompletableFuture<String> future = new CompletableFuture<>();
 
-        server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
-        server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
 
-        client.request(request("POST", "/foo/bar"), callbackForSuccessfulTextRequest(future));
+        List<HttpParam> queryParams = Arrays.asList(
+                HttpParam.from("foo", "bar"),
+                HttpParam.from("foo", "baz"),
+                HttpParam.from("foo", "bibbly"));
 
-        try {
-            assertThat(future.get()).isEqualTo("this is the expected body");
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
+        client.request(request("GET", "/foo", queryParams), callback(future));
 
-        verifyRequest("POST", "/foo/bar", null, null);
-        verifyRequest("POST", "/bar/baz", null, null);
+        assertThat(unwrap(future)).isEqualTo(BODY);
+
+        verifyRequest("GET", "/foo", null, queryParams, null);
     }
 
     @Test
-    public void testPUTRedirect() throws Throwable {
+    public void testEmptyQueryParam() throws Throwable {
         CompletableFuture<String> future = new CompletableFuture<>();
 
-        server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
-        server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
 
-        client.request(request("PUT", "/foo/bar"), callbackForSuccessfulTextRequest(future));
+        List<HttpParam> queryParams = Collections.singletonList(HttpParam.from("foo", ""));
 
-        try {
-            assertThat(future.get()).isEqualTo("this is the expected body");
-        } catch (ExecutionException e) {
-            throw e.getCause();
+        client.request(request("GET", "/foo", queryParams), callback(future));
+
+        assertThat(unwrap(future)).isEqualTo(BODY);
+
+        verifyRequest("GET", "/foo", null, queryParams, null);
+    }
+
+    @Test
+    public void testSimpleHeaderParams() throws Throwable {
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+
+        List<HttpParam> headerParams = Arrays.asList(
+                HttpParam.from("foo", "bar"),
+                HttpParam.from("bar", "baz"),
+                HttpParam.from("baz", "bibbly"));
+
+        client.request(request("GET", "/foo", emptyList(), headerParams), callback(future));
+
+        assertThat(unwrap(future)).isEqualTo(BODY);
+
+        verifyRequest("GET", "/foo", null, null, headerParams);
+    }
+
+    @Test
+    public void testDuplicatedHeaderParams() throws Throwable {
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+
+        List<HttpParam> headerParams = Arrays.asList(
+                HttpParam.from("foo", "bar"),
+                HttpParam.from("foo", "baz"),
+                HttpParam.from("foo", "bibbly"));
+
+        client.request(request("GET", "/foo", emptyList(), headerParams), callback(future));
+
+        assertThat(unwrap(future)).isEqualTo(BODY);
+
+        verifyRequest("GET", "/foo", null, null, headerParams);
+    }
+
+    @Test
+    public void testEmptyHeaderParam() throws Throwable {
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+
+        List<HttpParam> headerParams = Collections.singletonList(HttpParam.from("foo", ""));
+
+        client.request(request("GET", "/foo", emptyList(), headerParams), callback(future));
+
+        assertThat(unwrap(future)).isEqualTo(BODY);
+
+        verifyRequest("GET", "/foo", null, null, headerParams);
+    }
+
+
+    @Test
+    public void testSimpleRedirects() throws Throwable {
+        for (String method : HTTP_METHODS) {
+            CompletableFuture<String> future = new CompletableFuture<>();
+
+            server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
+            server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+
+            client.request(request(method, "/foo/bar"), callback(future));
+
+            assertThat(unwrap(future)).isEqualTo(BODY);
+
+            verifyRequest(method, "/foo/bar", null, null, null);
+            verifyRequest(method, "/bar/baz", null, null, null);
         }
-
-        verifyRequest("PUT", "/foo/bar", null, null);
-        verifyRequest("PUT", "/bar/baz", null, null);
     }
 
     @Test
@@ -153,22 +235,179 @@ public abstract class BaseClientTest {
         CompletableFuture<String> future = new CompletableFuture<>();
 
         server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz?baz=bibbly"));
-        server.enqueue(new MockResponse().setBody("this is the expected body").setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
 
-        client.request(request("PUT", "/foo/bar", Collections.singletonMap("foo", "bar")), callbackForSuccessfulTextRequest(future));
+        client.request(request("GET", "/foo/bar", Collections.singletonList(HttpParam.from("foo", "bar"))), callback(future));
 
-        try {
-            assertThat(future.get()).isEqualTo("this is the expected body");
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
+        assertThat(unwrap(future)).isEqualTo(BODY);
 
-        verifyRequest("PUT", "/foo/bar", null, Collections.singletonMap("foo", "bar"));
-        verifyRequest("PUT", "/bar/baz", null, Collections.singletonMap("baz", "bibbly"));
+        verifyRequest("GET", "/foo/bar", null, Collections.singletonList(HttpParam.from("foo", "bar")), null);
+        verifyRequest("GET", "/bar/baz", null, Collections.singletonList(HttpParam.from("baz", "bibbly")), null);
     }
 
-    private void verifyRequest(String method, String path, String body, Map<String, String> params) throws Exception {
-        RecordedRequest request = server.takeRequest();
+    @Test
+    public void testUpload() throws Throwable {
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+        String uploadBody = "this is the request upload body";
+
+        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+
+        client.request(request("POST", "/foo/bar", emptyList(), emptyList(), uploadBody), callback(future));
+
+        assertThat(unwrap(future)).isEqualTo(BODY);
+
+        verifyRequest("POST", "/foo/bar", uploadBody, null, null);
+    }
+
+    @Test
+    public void testConnectionRefused() throws Throwable {
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+        SerializedRequest request = request("GET", "/foo/bar").toBuilder()
+                .uri(URI.create("http://127.0.0.1:" + (server.getPort() + 1) + "/foo/bar"))
+                .build();
+
+        client.request(request, callback(future));
+
+        try {
+            unwrap(future);
+            failBecauseExceptionWasNotThrown(ExecutionException.class);
+        } catch (ExecutionException e) {
+            assertThat(e).hasRootCauseInstanceOf(ConnectException.class);
+            log.debug("Caught expected exception", e.getCause());
+        }
+    }
+
+    @Test
+    public void testConcurrentRequests() throws Throwable {
+        CompletableFuture<String> future1 = new CompletableFuture<>();
+        CompletableFuture<String> future2 = new CompletableFuture<>();
+
+        client.request(request("GET", "/request/one"), callback(future1));
+
+        // need to add sleep to ensure requests are received in order on the server
+        Thread.sleep(100);
+
+        client.request(request("GET", "/request/two"), callback(future2));
+
+        // ensure both requests are pending
+        assertThat(future1).isNotCompleted();
+        assertThat(future2).isNotCompleted();
+
+        server.enqueue(new MockResponse().setResponseCode(200).setBody("response one"));
+        server.enqueue(new MockResponse().setResponseCode(200).setBody("response two"));
+
+        assertThat(unwrap(future1)).isEqualTo("response one");
+        assertThat(unwrap(future2)).isEqualTo("response two");
+
+        verifyRequest("GET", "/request/one", null, null, null);
+        verifyRequest("GET", "/request/two", null, null, null);
+    }
+
+    @Test
+    public void testsRequestMethodsWithVariousStatusCodes() throws Throwable {
+        final int[] statusCodes = {
+                200,
+                202,
+                204,
+                // 307 is tested above
+                400,
+                401,
+                403,
+                409,
+                412,
+                418, // very important
+                429,
+                500,
+                502,
+                503
+        };
+
+        final List<HttpParam> queryParams = Arrays.asList(
+                HttpParam.from("one", "two"),
+                HttpParam.from("three", "four"),
+                HttpParam.from("five", "six")
+        );
+
+        final List<HttpParam> headerParams = Arrays.asList(
+                HttpParam.from("X-one", "two"),
+                HttpParam.from("X-three", "four"),
+                HttpParam.from("X-five", "six")
+        );
+
+        final String requestBody = "request body";
+
+        for (String method : HTTP_METHODS) {
+            for (int statusCode : statusCodes) {
+
+                CompletableFuture<String> future = new CompletableFuture<>();
+
+                MockResponse response = new MockResponse().setResponseCode(statusCode);
+
+                if (204 != statusCode) {
+                    response.setBody(BODY);
+                }
+
+                if (401 == statusCode) {
+                    response.setHeader("WWW-Authenticate", "foo");
+                }
+
+                server.enqueue(response);
+
+                if ("GET".equals(method)) {
+                    client.request(request(method, "/path", queryParams, headerParams), callback(future));
+                } else {
+                    client.request(request(method, "/path", queryParams, headerParams, requestBody), callback(future));
+                }
+
+                if (statusCode != 204) {
+                    assertThat(unwrap(future)).isEqualTo(BODY);
+                } else {
+                    assertThat(unwrap(future)).isEqualTo("");
+                }
+
+                String expectedBody = "GET".equalsIgnoreCase(method) ? null : requestBody;
+
+                verifyRequest(method, "/path", expectedBody, queryParams, headerParams);
+            }
+        }
+    }
+
+    private static String toString(InputStream stream) {
+        try {
+            ByteArrayOutputStream result = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = stream.read(buffer)) != -1) {
+                result.write(buffer, 0, length);
+            }
+
+            return result.toString(StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to read string", e);
+        }
+    }
+
+    private <T> T unwrap(Future<T> future) throws Throwable {
+        try {
+            return future.get(1, TimeUnit.SECONDS);
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof Error) {
+                throw e.getCause();
+            } else {
+                throw e;
+            }
+        } catch (TimeoutException e) {
+            TestCase.fail("Request failed to complete within 1 second");
+            return null; // unreachable
+        }
+    }
+
+    private void verifyRequest(String method, String path, String body, List<HttpParam> queryParams, List<HttpParam> headerParams) throws Exception {
+        RecordedRequest request = server.takeRequest(1, TimeUnit.SECONDS);
+
+        assertThat(request).withFailMessage("Expected client to make a request to server, but none found").isNotNull();
 
         if (method != null) {
             assertThat(request.getMethod()).isEqualTo(method);
@@ -179,43 +418,68 @@ public abstract class BaseClientTest {
         }
 
         if (body != null) {
-            assertThat(new String(request.getBody().readByteArray(), StandardCharsets.UTF_8)).isEqualTo(body);
+            assertThat(new String(request.getBody().readByteArray(), UTF_8)).isEqualTo(body);
         }
 
-        if (params != null) {
-            params.forEach((key, value) -> {
-                assertThat(request.getRequestUrl().queryParameter(key)).isEqualTo(value);
-            });
+        if (queryParams != null) {
+            String expectedQueryString = queryParams.stream().map(this::toQueryParam).collect(Collectors.joining("&"));
+            assertThat(request.getRequestUrl().query()).isEqualTo(expectedQueryString);
         }
+
+        if (headerParams != null) {
+            assertThat(request.getHeaders().size()).isGreaterThanOrEqualTo(headerParams.size());
+            headerParams.forEach(header -> assertThat(request.getHeaders().toMultimap()).containsKey(header.getKey()));
+            headerParams.forEach(header -> assertThat(request.getHeaders().toMultimap().get(header.getKey())).contains(header.getValue()));
+        }
+    }
+
+    private String toQueryParam(HttpParam param) {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(param.getKey());
+        if (param.getValue() != null) {
+            builder.append("=");
+            builder.append(param.getValue());
+        }
+
+        return builder.toString();
     }
 
     private SerializedRequest request(String method, String path) {
         return request(method, path, Collections.emptyList());
     }
 
-    private SerializedRequest request(String method, String path, Map<String, String> queryParams) {
-        return request(method, path, queryParams.entrySet().stream()
-                .map(e -> new HttpParam(e.getKey(), e.getValue()))
-                .collect(Collectors.toList()));
-    }
-
     private SerializedRequest request(String method, String path, List<HttpParam> queryParams) {
-        return SerializedRequest.builder()
+        return request(method, path, queryParams, emptyList(), null);
+    }
+
+    private SerializedRequest request(String method, String path, List<HttpParam> queryParams, List<HttpParam> headerParams) {
+        return request(method, path, queryParams, headerParams, null);
+    }
+
+    private SerializedRequest request(String method, String path, List<HttpParam> queryParams, List<HttpParam> headerParams, String body) {
+        SerializedRequest.SerializedRequestBuilder builder = SerializedRequest.builder()
                 .queryParams(queryParams)
+                .headers(headerParams)
                 .method(method)
-                .uri(URI.create("http://127.0.0.1:" + server.getPort() + path))
-                .build();
+                .uri(URI.create("http://127.0.0.1:" + server.getPort() + path));
+
+        if (body != null) {
+            builder.requestBody(RequestBody.builder().contentType("octet/stream").body(ByteBuffer.wrap(body.getBytes(UTF_8))).build());
+        }
+
+        return builder.build();
     }
 
 
-    private Client.ClientCallback callbackForSuccessfulTextRequest(CompletableFuture<String> future) {
-
-        final StringBuffer builder = new StringBuffer();
+    private Client.ClientCallback callback(CompletableFuture<String> future) {
 
         // since client is async, calls should never happen on the original thread
         final long originalThreadId = Thread.currentThread().getId();
 
         return new Client.ClientCallback() {
+
+            private ExpandableByteBuffer buffer;
 
             private volatile boolean terminalOperationCalled = false;
 
@@ -229,7 +493,11 @@ public abstract class BaseClientTest {
                     throw e;
                 }
 
-                return content -> builder.append(BaseClientTest.toString(content));
+                buffer = responseHeaders.getContentLength()
+                        .map(ExpandableByteBuffer::create)
+                        .orElseGet(ExpandableByteBuffer::createEmpty);
+
+                return buffer::append;
             }
 
             @Override
@@ -258,10 +526,13 @@ public abstract class BaseClientTest {
                 }
 
                 terminalOperationCalled = true;
-                future.complete(builder.toString());
+
+                try (InputStream inputStream = buffer.createInputStream()) {
+                    future.complete(BaseClientTest.toString(inputStream));
+                } catch (IOException e) {
+                    future.completeExceptionally(e);
+                }
             }
         };
     }
-
-
 }

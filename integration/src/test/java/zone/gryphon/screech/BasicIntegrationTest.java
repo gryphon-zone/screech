@@ -51,8 +51,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class BasicIntegrationTest {
 
     static {
-        SLF4JBridgeHandler.removeHandlersForRootLogger();
-        SLF4JBridgeHandler.install();
+        if (!SLF4JBridgeHandler.isInstalled()) {
+            SLF4JBridgeHandler.removeHandlersForRootLogger();
+            SLF4JBridgeHandler.install();
+        }
     }
 
     @Data
