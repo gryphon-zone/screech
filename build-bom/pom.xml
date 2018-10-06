@@ -32,6 +32,7 @@
 
     <properties>
         <okhttp.version>3.11.0</okhttp.version>
+        <jetty.version>9.4.11.v20180605</jetty.version>
     </properties>
 
     <dependencyManagement>
@@ -53,7 +54,12 @@
             <dependency>
                 <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-client</artifactId>
-                <version>9.4.11.v20180605</version>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-http</artifactId>
+                <version>${jetty.version}</version>
             </dependency>
 
             <dependency>
@@ -90,12 +96,26 @@
                 <scope>provided</scope>
                 <optional>true</optional>
             </dependency>
-
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-http</artifactId>
+                <version>4.1.25.Final</version>
+            </dependency>
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
                 <version>1.2.3</version>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okio</groupId>
+                <artifactId>okio</artifactId>
+                <version>1.14.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
             </dependency>
             <dependency>
                 <groupId>ch.qos.logback</groupId>
@@ -129,5 +149,4 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
 </project>
