@@ -42,14 +42,26 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- compile dependencies -->
+        <dependency>
+            <groupId>zone.gryphon</groupId>
+            <artifactId>screech-core</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>zone.gryphon</groupId>
-            <artifactId>screech-core</artifactId>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -69,18 +81,19 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jul-to-slf4j</artifactId>
             <scope>compile</scope>
         </dependency>
+
+        <!-- provided dependencies -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>
-
-
 </project>
