@@ -301,8 +301,12 @@ public abstract class BaseClientTest {
         assertThat(responseOne).isIn("response one", "response two");
         assertThat(responseTwo).isIn("response one", "response two");
 
-        verifyRequest("GET", "/request/one", null, null, null);
-        verifyRequest("GET", "/request/two", null, null, null);
+        RecordedRequest requestOne = getRequest();
+        RecordedRequest requestTwo = getRequest();
+
+        assertThat(requestOne.getPath()).isNotEqualTo(requestTwo.getPath());
+        assertThat(requestOne.getPath()).isIn("/request/one", "/request/two");
+        assertThat(requestTwo.getPath()).isIn("/request/one", "/request/two");
     }
 
     @Test
@@ -404,10 +408,16 @@ public abstract class BaseClientTest {
         }
     }
 
-    private void verifyRequest(String method, String path, String body, List<HttpParam> queryParams, List<HttpParam> headerParams) throws Exception {
+    private RecordedRequest getRequest() throws InterruptedException {
         RecordedRequest request = server.takeRequest(1, TimeUnit.SECONDS);
 
         assertThat(request).withFailMessage("Expected client to make a request to server, but none found").isNotNull();
+
+        return request;
+    }
+
+    private void verifyRequest(String method, String path, String body, List<HttpParam> queryParams, List<HttpParam> headerParams) throws Exception {
+        RecordedRequest request = getRequest();
 
         if (method != null) {
             assertThat(request.getMethod()).isEqualTo(method);
