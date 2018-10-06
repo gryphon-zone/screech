@@ -285,10 +285,6 @@ public abstract class BaseClientTest {
         CompletableFuture<String> future2 = new CompletableFuture<>();
 
         client.request(request("GET", "/request/one"), callback(future1));
-
-        // need to add sleep to ensure requests are received in order on the server
-        Thread.sleep(100);
-
         client.request(request("GET", "/request/two"), callback(future2));
 
         // ensure both requests are pending
@@ -298,8 +294,12 @@ public abstract class BaseClientTest {
         server.enqueue(new MockResponse().setResponseCode(200).setBody("response one"));
         server.enqueue(new MockResponse().setResponseCode(200).setBody("response two"));
 
-        assertThat(unwrap(future1)).isEqualTo("response one");
-        assertThat(unwrap(future2)).isEqualTo("response two");
+        String responseOne = unwrap(future1);
+        String responseTwo = unwrap(future2);
+
+        assertThat(responseOne).isNotEqualTo(responseTwo);
+        assertThat(responseOne).isIn("response one", "response two");
+        assertThat(responseTwo).isIn("response one", "response two");
 
         verifyRequest("GET", "/request/one", null, null, null);
         verifyRequest("GET", "/request/two", null, null, null);
