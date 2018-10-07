@@ -26,26 +26,29 @@
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-
-
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-    </properties>
-
     <modules>
         <module>asynchttpclient2</module>
         <module>bom</module>
         <module>build-bom</module>
         <module>core</module>
         <module>gson2</module>
+        <module>integration</module>
         <module>jackson2</module>
         <module>jetty</module>
-        <module>integration</module>
         <module>test-utilities</module>
     </modules>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <pedantic.testOnlyDeps>
+            org.junit:junit,org.assertj:assertj-core,org.mockito:mockito-all,ch.qos.logback:logback-classic,ch.qos.logback:logback-core
+        </pedantic.testOnlyDeps>
+
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
 
     <build>
         <plugins>
@@ -70,6 +73,108 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.0.0-M2</version>
+                <executions>
+                    <execution>
+                        <id>require-upper-bound-deps</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireUpperBoundDeps/>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>pedantic-pom</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <!-- see the following for documentation about configuration of the enforcer -->
+                                <!-- https://github.com/ferstl/pedantic-pom-enforcers/wiki/CompoundPedanticEnforcer -->
+                                <compound
+                                        implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
+
+                                    <!-- Enforcers -->
+                                    <enforcers>
+                                        POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER,DEPENDENCY_CONFIGURATION,DEPENDENCY_SCOPE
+                                    </enforcers>
+
+                                    <!-- POM_SECTION_ORDER configuration -->
+                                    <pomSectionPriorities>
+                                        modelVersion,parent,groupId,artifactId,version,packaging
+                                    </pomSectionPriorities>
+
+                                    <!-- DEPENDENCY_ORDER configuration -->
+                                    <dependenciesOrderBy>scope,groupId,artifactId</dependenciesOrderBy>
+                                    <dependenciesScopePriorities>
+                                        import,compile,runtime,provided,test
+                                    </dependenciesScopePriorities>
+                                    <dependenciesGroupIdPriorities>${project.groupId}</dependenciesGroupIdPriorities>
+
+                                    <!-- DEPENDENCY_MANAGEMENT_ORDER configuration -->
+                                    <dependencyManagementOrderBy>scope,groupId,artifactId</dependencyManagementOrderBy>
+                                    <dependencyManagementScopePriorities>
+                                        import,compile,runtime,provided,test
+                                    </dependencyManagementScopePriorities>
+                                    <dependencyManagementGroupIdPriorities>
+                                        ${project.groupId}
+                                    </dependencyManagementGroupIdPriorities>
+
+                                    <!-- DEPENDENCY_CONFIGURATION configuration -->
+                                    <manageDependencyVersions>true</manageDependencyVersions>
+                                    <allowUnmangedProjectVersions>false</allowUnmangedProjectVersions>
+                                    <manageDependencyExclusions>true</manageDependencyExclusions>
+
+                                    <!-- DEPENDENCY_SCOPE configuration -->
+                                    <compileDependencies/>
+                                    <providedDependencies>org.projectlombok:lombok</providedDependencies>
+                                    <runtimeDependencies/>
+                                    <systemDependencies/>
+                                    <testDependencies>${pedantic.testOnlyDeps}</testDependencies>
+                                    <importDependencies/>
+
+                                    <!-- DEPENDENCY_MANAGEMENT_LOCATION configuration -->
+                                    <allowParentPomsForDependencyManagement>
+                                        true
+                                    </allowParentPomsForDependencyManagement>
+                                    <dependencyManagingPoms/>
+
+                                    <!-- PLUGIN_MANAGEMENT_ORDER configuration -->
+                                    <pluginManagementOrderBy>groupId,artifactId</pluginManagementOrderBy>
+                                    <pluginManagementGroupIdPriorities>
+                                        ${project.groupId}
+                                    </pluginManagementGroupIdPriorities>
+                                    <pluginManagementArtifactIdPriorities/>
+
+                                    <!-- PLUGIN_CONFIGURATION configuration -->
+                                    <managePluginVersions>false</managePluginVersions>
+                                    <managePluginConfigurations>false</managePluginConfigurations>
+                                    <managePluginDependencies>false</managePluginDependencies>
+
+                                    <!-- PLUGIN_MANAGEMENT_LOCATION configuration -->
+                                    <allowParentPomsForPluginManagement>true</allowParentPomsForPluginManagement>
+                                    <pluginManagingPoms/>
+
+                                </compound>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.github.ferstl</groupId>
+                        <artifactId>pedantic-pom-enforcers</artifactId>
+                        <version>1.3.1</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>

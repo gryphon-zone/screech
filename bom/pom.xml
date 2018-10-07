@@ -27,19 +27,19 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <packaging>pom</packaging>
     <artifactId>screech-bom</artifactId>
+    <packaging>pom</packaging>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>zone.gryphon</groupId>
-                <artifactId>screech-core</artifactId>
+                <artifactId>screech-async-httpclient2</artifactId>
                 <version>0.1-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
-                <artifactId>screech-async-httpclient2</artifactId>
+                <artifactId>screech-core</artifactId>
                 <version>0.1-SNAPSHOT</version>
             </dependency>
             <dependency>
