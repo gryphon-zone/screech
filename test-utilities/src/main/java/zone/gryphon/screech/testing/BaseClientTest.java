@@ -18,6 +18,10 @@
 package zone.gryphon.screech.testing;
 
 import junit.framework.TestCase;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NonNull;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -46,6 +50,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -68,11 +74,41 @@ public abstract class BaseClientTest {
         }
     }
 
+    @Value
+    @Builder
+    @AllArgsConstructor
+    private static class CompleteResponse {
+
+        private final String responseBody;
+
+        private final int status;
+
+        private final List<HttpParam> headers;
+
+        public List<String> getHeaderValues(@NonNull String key) {
+
+            if (headers == null) {
+                return Collections.emptyList();
+            }
+
+            return headers.stream()
+                    .filter(Objects::nonNull)
+                    .filter(header -> key.equals(header.getKey()))
+                    .map(HttpParam::getValue)
+                    .collect(Collectors.toList());
+        }
+
+        public Set<String> getHeaderKeys() {
+            return getHeaders().stream()
+                    .map(HttpParam::getKey)
+                    .collect(Collectors.toSet());
+        }
+
+    }
+
     private static final String[] HTTP_METHODS = {
             "GET", "PUT", "POST", "DELETE"
     };
-
-    private static final String BODY = "this is the expected message body";
 
     protected abstract Client createClient();
 
@@ -99,22 +135,51 @@ public abstract class BaseClientTest {
 
     @Test
     public void testSimpleGET() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         client.request(request("GET", "/foo/bar"), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
+
+        assertThat(server.takeRequest().getPath()).isEqualTo("/foo/bar");
+    }
+
+    @Test
+    public void test204() throws Throwable {
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+
+        server.enqueue(new MockResponse().setResponseCode(204));
+
+        client.request(request("GET", "/foo/bar"), callback(future));
+
+        verifyResponse(future, 204, "", null);
+
+        assertThat(server.takeRequest().getPath()).isEqualTo("/foo/bar");
+    }
+
+    @Test
+    public void test401() throws Throwable {
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
+
+        server.enqueue(new MockResponse().setResponseCode(401).setBody(body).setHeader("WWW-Authenticate", "realm"));
+
+        client.request(request("GET", "/foo/bar"), callback(future));
+
+        verifyResponse(future, 401, body, Collections.singletonList(HttpParam.from("WWW-Authenticate", "realm")));
 
         assertThat(server.takeRequest().getPath()).isEqualTo("/foo/bar");
     }
 
     @Test
     public void testSimpleQueryParams() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         List<HttpParam> queryParams = Arrays.asList(
                 HttpParam.from("foo", "bar"),
@@ -123,16 +188,17 @@ public abstract class BaseClientTest {
 
         client.request(request("GET", "/foo", queryParams), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("GET", "/foo", null, queryParams, null);
     }
 
     @Test
     public void testDuplicatedQueryParams() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         List<HttpParam> queryParams = Arrays.asList(
                 HttpParam.from("foo", "bar"),
@@ -141,31 +207,33 @@ public abstract class BaseClientTest {
 
         client.request(request("GET", "/foo", queryParams), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("GET", "/foo", null, queryParams, null);
     }
 
     @Test
     public void testEmptyQueryParam() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         List<HttpParam> queryParams = Collections.singletonList(HttpParam.from("foo", ""));
 
         client.request(request("GET", "/foo", queryParams), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("GET", "/foo", null, queryParams, null);
     }
 
     @Test
     public void testSimpleHeaderParams() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         List<HttpParam> headerParams = Arrays.asList(
                 HttpParam.from("foo", "bar"),
@@ -174,16 +242,17 @@ public abstract class BaseClientTest {
 
         client.request(request("GET", "/foo", emptyList(), headerParams), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("GET", "/foo", null, null, headerParams);
     }
 
     @Test
     public void testDuplicatedHeaderParams() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         List<HttpParam> headerParams = Arrays.asList(
                 HttpParam.from("foo", "bar"),
@@ -192,22 +261,23 @@ public abstract class BaseClientTest {
 
         client.request(request("GET", "/foo", emptyList(), headerParams), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("GET", "/foo", null, null, headerParams);
     }
 
     @Test
     public void testEmptyHeaderParam() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         List<HttpParam> headerParams = Collections.singletonList(HttpParam.from("foo", ""));
 
         client.request(request("GET", "/foo", emptyList(), headerParams), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("GET", "/foo", null, null, headerParams);
     }
@@ -216,14 +286,15 @@ public abstract class BaseClientTest {
     @Test
     public void testSimpleRedirects() throws Throwable {
         for (String method : HTTP_METHODS) {
-            CompletableFuture<String> future = new CompletableFuture<>();
+            CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+            String body = tracingBody();
 
             server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz"));
-            server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+            server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
             client.request(request(method, "/foo/bar"), callback(future));
 
-            assertThat(unwrap(future)).isEqualTo(BODY);
+            verifyResponse(future, 200, body, null);
 
             verifyRequest(method, "/foo/bar", null, null, null);
             verifyRequest(method, "/bar/baz", null, null, null);
@@ -232,14 +303,15 @@ public abstract class BaseClientTest {
 
     @Test
     public void testRedirectWithQueryParams() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
         server.enqueue(new MockResponse().setResponseCode(307).addHeader("Location", "/bar/baz?baz=bibbly"));
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         client.request(request("GET", "/foo/bar", Collections.singletonList(HttpParam.from("foo", "bar"))), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("GET", "/foo/bar", null, Collections.singletonList(HttpParam.from("foo", "bar")), null);
         verifyRequest("GET", "/bar/baz", null, Collections.singletonList(HttpParam.from("baz", "bibbly")), null);
@@ -247,22 +319,23 @@ public abstract class BaseClientTest {
 
     @Test
     public void testUpload() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
+        String body = tracingBody();
 
         String uploadBody = "this is the request upload body";
 
-        server.enqueue(new MockResponse().setBody(BODY).setResponseCode(200));
+        server.enqueue(new MockResponse().setBody(body).setResponseCode(200));
 
         client.request(request("POST", "/foo/bar", emptyList(), emptyList(), uploadBody), callback(future));
 
-        assertThat(unwrap(future)).isEqualTo(BODY);
+        verifyResponse(future, 200, body, null);
 
         verifyRequest("POST", "/foo/bar", uploadBody, null, null);
     }
 
     @Test
     public void testConnectionRefused() throws Throwable {
-        CompletableFuture<String> future = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
 
         SerializedRequest request = request("GET", "/foo/bar").toBuilder()
                 .uri(URI.create("http://127.0.0.1:" + (server.getPort() + 1) + "/foo/bar"))
@@ -281,8 +354,8 @@ public abstract class BaseClientTest {
 
     @Test
     public void testConcurrentRequests() throws Throwable {
-        CompletableFuture<String> future1 = new CompletableFuture<>();
-        CompletableFuture<String> future2 = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future1 = new CompletableFuture<>();
+        CompletableFuture<CompleteResponse> future2 = new CompletableFuture<>();
 
         client.request(request("GET", "/request/one"), callback(future1));
         client.request(request("GET", "/request/two"), callback(future2));
@@ -294,12 +367,15 @@ public abstract class BaseClientTest {
         server.enqueue(new MockResponse().setResponseCode(200).setBody("response one"));
         server.enqueue(new MockResponse().setResponseCode(200).setBody("response two"));
 
-        String responseOne = unwrap(future1);
-        String responseTwo = unwrap(future2);
+        CompleteResponse responseOne = unwrap(future1);
+        CompleteResponse responseTwo = unwrap(future2);
+
+        assertThat(responseOne.getStatus()).isEqualTo(200);
+        assertThat(responseTwo.getStatus()).isEqualTo(200);
 
         assertThat(responseOne).isNotEqualTo(responseTwo);
-        assertThat(responseOne).isIn("response one", "response two");
-        assertThat(responseTwo).isIn("response one", "response two");
+        assertThat(responseOne.getResponseBody()).isIn("response one", "response two");
+        assertThat(responseTwo.getResponseBody()).isIn("response one", "response two");
 
         RecordedRequest requestOne = getRequest();
         RecordedRequest requestTwo = getRequest();
@@ -314,10 +390,7 @@ public abstract class BaseClientTest {
         final int[] statusCodes = {
                 200,
                 202,
-                204,
-                // 307 is tested above
                 400,
-                401,
                 403,
                 409,
                 412,
@@ -344,20 +417,12 @@ public abstract class BaseClientTest {
 
         for (String method : HTTP_METHODS) {
             for (int statusCode : statusCodes) {
+                String id = UUID.randomUUID().toString();
+                String body = tracingBody(id);
 
-                CompletableFuture<String> future = new CompletableFuture<>();
+                CompletableFuture<CompleteResponse> future = new CompletableFuture<>();
 
-                MockResponse response = new MockResponse().setResponseCode(statusCode);
-
-                if (204 != statusCode) {
-                    response.setBody(BODY);
-                }
-
-                if (401 == statusCode) {
-                    response.setHeader("WWW-Authenticate", "foo");
-                }
-
-                server.enqueue(response);
+                server.enqueue(new MockResponse().setResponseCode(statusCode).setBody(body).setHeader("X-id", id));
 
                 if ("GET".equals(method)) {
                     client.request(request(method, "/path", queryParams, headerParams), callback(future));
@@ -365,17 +430,21 @@ public abstract class BaseClientTest {
                     client.request(request(method, "/path", queryParams, headerParams, requestBody), callback(future));
                 }
 
-                if (statusCode != 204) {
-                    assertThat(unwrap(future)).isEqualTo(BODY);
-                } else {
-                    assertThat(unwrap(future)).isEqualTo("");
-                }
+                verifyResponse(future, statusCode, body, Collections.singletonList(HttpParam.from("X-id", id)));
 
                 String expectedBody = "GET".equalsIgnoreCase(method) ? null : requestBody;
 
                 verifyRequest(method, "/path", expectedBody, queryParams, headerParams);
             }
         }
+    }
+
+    private String tracingBody() {
+        return tracingBody(UUID.randomUUID().toString());
+    }
+
+    private String tracingBody(String id) {
+        return String.format("response body for request %s", id);
     }
 
     private static String toString(InputStream stream) {
@@ -395,7 +464,7 @@ public abstract class BaseClientTest {
 
     private <T> T unwrap(Future<T> future) throws Throwable {
         try {
-            return future.get(1, TimeUnit.SECONDS);
+            return Objects.requireNonNull(future.get(1, TimeUnit.SECONDS), "future returned null response");
         } catch (ExecutionException e) {
             if (e.getCause() instanceof Error) {
                 throw e.getCause();
@@ -404,7 +473,7 @@ public abstract class BaseClientTest {
             }
         } catch (TimeoutException e) {
             TestCase.fail("Request failed to complete within 1 second");
-            return null; // unreachable
+            throw e; // unreachable
         }
     }
 
@@ -414,6 +483,27 @@ public abstract class BaseClientTest {
         assertThat(request).withFailMessage("Expected client to make a request to server, but none found").isNotNull();
 
         return request;
+    }
+
+    private void verifyResponse(Future<CompleteResponse> response, Integer status, String body, List<HttpParam> headers) throws Throwable {
+        verifyResponse(unwrap(response), status, body, headers);
+    }
+
+    private void verifyResponse(CompleteResponse response, Integer status, String body, List<HttpParam> headers) {
+
+        if (status != null) {
+            assertThat(response.getStatus()).isEqualTo(status);
+        }
+
+        if (body != null) {
+            assertThat(response.getResponseBody()).isEqualTo(body);
+        }
+
+        if (headers != null) {
+            assertThat(response.getHeaders().size()).isGreaterThanOrEqualTo(headers.size());
+            headers.forEach(header -> assertThat(response.getHeaderKeys()).contains(header.getKey()));
+            headers.forEach(header -> assertThat(response.getHeaderValues(header.getKey())).contains(header.getValue()));
+        }
     }
 
     private void verifyRequest(String method, String path, String body, List<HttpParam> queryParams, List<HttpParam> headerParams) throws Exception {
@@ -482,7 +572,7 @@ public abstract class BaseClientTest {
     }
 
 
-    private Client.ClientCallback callback(CompletableFuture<String> future) {
+    private Client.ClientCallback callback(CompletableFuture<CompleteResponse> future) {
 
         // since client is async, calls should never happen on the original thread
         final long originalThreadId = Thread.currentThread().getId();
@@ -490,6 +580,8 @@ public abstract class BaseClientTest {
         return new Client.ClientCallback() {
 
             private ExpandableByteBuffer buffer;
+
+            private final CompleteResponse.CompleteResponseBuilder builder = CompleteResponse.builder();
 
             private volatile boolean terminalOperationCalled = false;
 
@@ -506,6 +598,8 @@ public abstract class BaseClientTest {
                 buffer = responseHeaders.getContentLength()
                         .map(ExpandableByteBuffer::create)
                         .orElseGet(ExpandableByteBuffer::createEmpty);
+
+                builder.status(responseHeaders.getStatus()).headers(responseHeaders.getHeaders());
 
                 return buffer::append;
             }
@@ -538,7 +632,7 @@ public abstract class BaseClientTest {
                 terminalOperationCalled = true;
 
                 try (InputStream inputStream = buffer.createInputStream()) {
-                    future.complete(BaseClientTest.toString(inputStream));
+                    future.complete(builder.responseBody(BaseClientTest.toString(inputStream)).build());
                 } catch (IOException e) {
                     future.completeExceptionally(e);
                 }
