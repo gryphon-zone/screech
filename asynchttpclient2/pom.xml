@@ -47,14 +47,13 @@
             <groupId>zone.gryphon</groupId>
             <artifactId>screech-core</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>org.asynchttpclient</groupId>
-            <artifactId>async-http-client</artifactId>
-        </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.asynchttpclient</groupId>
+            <artifactId>async-http-client</artifactId>
         </dependency>
 
         <!-- provided dependencies -->
