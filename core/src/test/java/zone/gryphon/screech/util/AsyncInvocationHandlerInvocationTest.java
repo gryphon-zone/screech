@@ -15,12 +15,21 @@
  *
  */
 
-package zone.gryphon.screech;
+package zone.gryphon.screech.util;
 
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.Test;
+import zone.gryphon.screech.Client;
+import zone.gryphon.screech.Header;
+import zone.gryphon.screech.Param;
+import zone.gryphon.screech.RequestEncoder;
+import zone.gryphon.screech.RequestInterceptor;
+import zone.gryphon.screech.RequestLine;
+import zone.gryphon.screech.ResponseDecoderFactory;
+import zone.gryphon.screech.ScreechBuilder;
+import zone.gryphon.screech.Target;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.ResponseHeaders;

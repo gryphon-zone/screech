@@ -24,6 +24,7 @@ import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -46,29 +47,54 @@ public class ClientCallbackImpl implements Client.ClientCallback {
 
     @Override
     public Client.ContentCallback headers(ResponseHeaders responseHeaders) {
-        consumer = Optional.ofNullable(factory.apply(responseHeaders, callback));
-
-        return content -> {
-
-            if (terminalOperationCalled) {
-                log.error("Client.ContentCallback.content() called after completing request!");
-                return;
+        consumer = Optional.of(Objects.requireNonNull(factory.apply(responseHeaders, new Callback<Response<?>>() {
+            @Override
+            public void onSuccess(Response<?> result) {
+                runIfNoTerminalOperationCalled(true, () -> callback.onSuccess(result));
             }
 
-            consumer.ifPresent(c -> c.content(content));
-        };
+            @Override
+            public void onFailure(Throwable e) {
+                runIfNoTerminalOperationCalled(true, () -> callback.onFailure(e));
+            }
+        })));
+
+        return content -> runIfNoTerminalOperationCalled(false, () -> consumer.ifPresent(c -> c.content(content)));
     }
 
     @Override
     public void abort(Throwable t) {
-        terminalOperationCalled = true;
-        consumer.ifPresent(ResponseDecoder::abort);
-        callback.onFailure(t);
+        runIfNoTerminalOperationCalled(true, () -> {
+
+            try {
+                consumer.ifPresent(ResponseDecoder::abort);
+            } catch (Throwable ignore) {
+                // ignore
+            }
+
+            callback.onFailure(t);
+
+        });
     }
 
     @Override
     public void complete() {
-        terminalOperationCalled = true;
-        consumer.ifPresent(ResponseDecoder::complete);
+        runIfNoTerminalOperationCalled(true, () -> consumer.ifPresent(ResponseDecoder::complete));
+    }
+
+    private void runIfNoTerminalOperationCalled(boolean markAsTerminalOperationComplete, Runnable runnable) {
+
+        if (terminalOperationCalled) {
+            return;
+        }
+
+        try {
+            runnable.run();
+        } finally {
+            if (markAsTerminalOperationComplete) {
+                terminalOperationCalled = true;
+            }
+        }
+
     }
 }
