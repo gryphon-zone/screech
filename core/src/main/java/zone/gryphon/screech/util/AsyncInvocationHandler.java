@@ -32,13 +32,13 @@ import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.ResponseDecoderFactory;
 import zone.gryphon.screech.Target;
 import zone.gryphon.screech.exception.ScreechException;
+import zone.gryphon.screech.internal.ClientCallbackImpl;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.Request;
 import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
-import zone.gryphon.screech.internal.ClientCallbackImpl;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -215,17 +216,21 @@ public class AsyncInvocationHandler implements InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args) {
         CompletableFuture<Object> response = new CompletableFuture<>();
 
-        setUpInterceptors(0, buildRequest(args), new Callback<Response<?>>() {
-            @Override
-            public void onSuccess(Response<?> result) {
-                response.complete(result == null ? null : result.getEntity());
-            }
+        try {
+            setUpInterceptors(0, buildRequest(args), new Callback<Response<?>>() {
+                @Override
+                public void onSuccess(Response<?> result) {
+                    response.complete(result == null ? null : result.getEntity());
+                }
 
-            @Override
-            public void onFailure(Throwable e) {
-                response.completeExceptionally(e);
-            }
-        });
+                @Override
+                public void onFailure(Throwable e) {
+                    response.completeExceptionally(e);
+                }
+            });
+        } catch (Throwable e) {
+            response.completeExceptionally(e);
+        }
 
         if (isAsyncResponseType) {
             return response;
@@ -478,11 +483,11 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private List<HttpParam> interpolateHttpParams(List<HttpParam> params, Map<String, String> templateParams) {
         return params.stream()
-                .map(param -> interpolateSimgleHttpParam(param, templateParams))
+                .map(param -> interpolateSingleHttpParam(param, templateParams))
                 .collect(Collectors.toList());
     }
 
-    private HttpParam interpolateSimgleHttpParam(HttpParam param, Map<String, String> templateParams) {
+    private HttpParam interpolateSingleHttpParam(HttpParam param, Map<String, String> templateParams) {
 
         if (SimpleStringInterpolator.requiresInterpolation(param.getKey()) || SimpleStringInterpolator.requiresInterpolation(param.getValue())) {
             return HttpParam.builder()
@@ -522,12 +527,12 @@ public class AsyncInvocationHandler implements InvocationHandler {
                     @Override
                     public void onSuccess(Response<?> result) {
                         // noinspection unchecked
-                        responseCallback.onSuccess((Response) result);
+                        wrapCallToUserCode(modifiedResponseCallback, () -> responseCallback.onSuccess((Response) result));
                     }
 
                     @Override
                     public void onFailure(Throwable e) {
-                        responseCallback.onFailure(e);
+                        wrapCallToUserCode(modifiedResponseCallback, () -> responseCallback.onFailure(e));
                     }
                 });
             }, new Callback<Response<?>>() {
@@ -583,7 +588,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
     }
 
     private ResponseDecoder createFailureDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
-        return errorDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
+        return wrapCallToUserCode(callback, () -> errorDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
 
             @Override
             public void onSuccess(Object result) {
@@ -599,11 +604,11 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 callback.onFailure(e);
             }
 
-        });
+        }));
     }
 
     private ResponseDecoder createSuccessDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
-        return responseDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
+        return wrapCallToUserCode(callback, () -> responseDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
 
             @Override
             public void onSuccess(Object result) {
@@ -618,7 +623,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             public void onFailure(Throwable e) {
                 callback.onFailure(e);
             }
-        });
+        }));
     }
 
     private void wrapCallToUserCode(Callback<?> callback, Runnable runnable) {
@@ -626,6 +631,15 @@ public class AsyncInvocationHandler implements InvocationHandler {
             runnable.run();
         } catch (Throwable e) {
             callback.onFailure(e);
+        }
+    }
+
+    private <T> T wrapCallToUserCode(Callback<?> callback, Callable<T> runnable) {
+        try {
+            return runnable.call();
+        } catch (Throwable e) {
+            callback.onFailure(e);
+            return null;
         }
     }
 
