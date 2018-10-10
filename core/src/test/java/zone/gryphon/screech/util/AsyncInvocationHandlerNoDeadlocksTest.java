@@ -42,6 +42,7 @@ import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -845,6 +847,226 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
             Throwable cause = e.getCause();
             assertThat(cause).isInstanceOf(TestException.class);
             assertThat(cause).hasMessageContaining(id);
+        }
+    }
+
+    // ensure second interceptor gets called if first fails
+
+    @Test(timeout = 1000)
+    public void testIfResponseInterceptorThrowsExceptionSecondGetsCalled() {
+        String id = String.valueOf(UUID.randomUUID());
+        AtomicBoolean called = new AtomicBoolean();
+
+        TestApi test = TestApiBuilder.builder()
+                .requestInterceptors(Arrays.asList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                log.error("onSuccess should not have been called", createInvalidCallException());
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                called.set(true);
+                                responseCallback.onFailure(e);
+                            }
+                        });
+                    }
+                }, new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                throw new TestException(id);
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                log.error("onFailure should not have been called", createInvalidCallException());
+                            }
+                        });
+                    }
+                }))
+                .build()
+                .build();
+
+        try {
+            unwrap(test.eventuallyResult(id));
+            failBecauseExceptionWasNotThrown(ExecutionException.class);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            assertThat(cause).isInstanceOf(TestException.class);
+            assertThat(cause).hasMessageContaining(id);
+            assertThat(called).isTrue();
+        }
+    }
+
+    @Test(timeout = 1000)
+    public void testIfResponseInterceptorCompletesWithExceptionSecondGetsCalled() {
+        String id = String.valueOf(UUID.randomUUID());
+        AtomicBoolean called = new AtomicBoolean();
+
+        TestApi test = TestApiBuilder.builder()
+                .requestInterceptors(Arrays.asList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                log.error("onSuccess should not have been called", createInvalidCallException());
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                called.set(true);
+                                responseCallback.onFailure(e);
+                            }
+                        });
+                    }
+                }, new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                responseCallback.onFailure(new TestException(id));
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                log.error("onFailure should not have been called", createInvalidCallException());
+                            }
+                        });
+                    }
+                }))
+                .build()
+                .build();
+
+        try {
+            unwrap(test.eventuallyResult(id));
+            failBecauseExceptionWasNotThrown(ExecutionException.class);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            assertThat(cause).isInstanceOf(TestException.class);
+            assertThat(cause).hasMessageContaining(id);
+            assertThat(called).isTrue();
+        }
+    }
+
+    @Test(timeout = 1000)
+    public void testIfErrorResponseInterceptorThrowsExceptionSecondGetsCalled() {
+        String id = String.valueOf(UUID.randomUUID());
+        AtomicBoolean called = new AtomicBoolean();
+
+        TestApi test = TestApiBuilder.builder()
+                .client(new MockClient(500))
+                .requestInterceptors(Arrays.asList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                log.error("onSuccess should not have been called", createInvalidCallException());
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                called.set(true);
+                                responseCallback.onFailure(e);
+                            }
+                        });
+                    }
+                }, new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                log.error("onSuccess should not have been called", createInvalidCallException());
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                throw new TestException(id);
+                            }
+                        });
+                    }
+                }))
+                .build()
+                .build();
+
+        try {
+            unwrap(test.eventuallyResult(id));
+            failBecauseExceptionWasNotThrown(ExecutionException.class);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            assertThat(cause).isInstanceOf(TestException.class);
+            assertThat(cause).hasMessageContaining(id);
+            assertThat(called).isTrue();
+        }
+    }
+
+    @Test(timeout = 1000)
+    public void testIfErrorResponseInterceptorCompletesWithExceptionSecondGetsCalled() {
+        String id = String.valueOf(UUID.randomUUID());
+        AtomicBoolean called = new AtomicBoolean();
+
+        TestApi test = TestApiBuilder.builder()
+                .client(new MockClient(500))
+                .requestInterceptors(Arrays.asList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                log.error("onSuccess should not have been called", createInvalidCallException());
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                called.set(true);
+                                responseCallback.onFailure(e);
+                            }
+                        });
+                    }
+                }, new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                log.error("onSuccess should not have been called", createInvalidCallException());
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+                                responseCallback.onFailure(new TestException(id));
+                            }
+                        });
+                    }
+                }))
+                .build()
+                .build();
+
+        try {
+            unwrap(test.eventuallyResult(id));
+            failBecauseExceptionWasNotThrown(ExecutionException.class);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            assertThat(cause).isInstanceOf(TestException.class);
+            assertThat(cause).hasMessageContaining(id);
+            assertThat(called).isTrue();
         }
     }
 
