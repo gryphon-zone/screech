@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -217,7 +218,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
         CompletableFuture<Object> response = new CompletableFuture<>();
 
         try {
-            setUpInterceptors(0, buildRequest(args), new Callback<Response<?>>() {
+            setUpInterceptors(0, buildRequest(args), null, wrap(new Callback<Response<?>>() {
                 @Override
                 public void onSuccess(Response<?> result) {
                     response.complete(result == null ? null : result.getEntity());
@@ -227,7 +228,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 public void onFailure(Throwable e) {
                     response.completeExceptionally(e);
                 }
-            });
+            }));
         } catch (Throwable e) {
             response.completeExceptionally(e);
         }
@@ -514,50 +515,31 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 .orElse("application/octet-stream");
     }
 
-    private void setUpInterceptors(int index, Request<?> request, Callback<Response<?>> modifiedResponseCallback) {
+    private void setUpInterceptors(int index, Request<?> request, Callback<Response<?>> parentCallback, Callback<Response<?>> callback) {
 
         if (index >= requestInterceptors.size()) {
-            performClientCall(request, modifiedResponseCallback);
+            performClientCall(request, parentCallback, callback);
         } else {
             RequestInterceptor requestInterceptor = requestInterceptors.get(index);
 
-            //noinspection unchecked,CodeBlock2Expr
-            wrapCallToUserCode(modifiedResponseCallback, () -> requestInterceptor.intercept(request, (modifiedRequest, responseCallback) -> {
-                setUpInterceptors(index + 1, modifiedRequest, new Callback<Response<?>>() {
-                    @Override
-                    public void onSuccess(Response<?> result) {
-                        // noinspection unchecked
-                        wrapCallToUserCode(modifiedResponseCallback, () -> responseCallback.onSuccess((Response) result));
-                    }
+            //noinspection CodeBlock2Expr
+            BiConsumer<Request<?>, Callback<Response<Object>>> interceptorCallback = (modifiedRequest, responseCallback) -> {
+                setUpInterceptors(index + 1, modifiedRequest, callback, wrapResponseCallback(responseCallback));
+            };
 
-                    @Override
-                    public void onFailure(Throwable e) {
-                        wrapCallToUserCode(modifiedResponseCallback, () -> responseCallback.onFailure(e));
-                    }
-                });
-            }, new Callback<Response<?>>() {
-                @Override
-                public void onSuccess(Response<?> result) {
-                    modifiedResponseCallback.onSuccess(result);
-                }
-
-                @Override
-                public void onFailure(Throwable e) {
-                    modifiedResponseCallback.onFailure(e);
-                }
-            }));
+            wrapCallToUserCode(firstNonNull(parentCallback, callback), () -> requestInterceptor.intercept(request, interceptorCallback, callback));
         }
+
     }
 
-    private void performClientCall(Request request, Callback<Response<?>> callback) {
+    private void performClientCall(Request request, Callback<Response<?>> parentCallback, Callback<Response<?>> callback) {
         if (request.getEntity() != null) {
 
-            //noinspection CodeBlock2Expr
-            wrapCallToUserCode(callback, () -> encoder.encode(request.getEntity(), new Callback<ByteBuffer>() {
+            final Callback<ByteBuffer> byteBufferCallback = new Callback<ByteBuffer>() {
 
                 @Override
                 public void onSuccess(ByteBuffer result) {
-                    doRequest(result, request, callback);
+                    doRequest(result, request, parentCallback, callback);
                 }
 
                 @Override
@@ -565,15 +547,22 @@ public class AsyncInvocationHandler implements InvocationHandler {
                     callback.onFailure(e);
                 }
 
-            }));
+            };
+
+            //noinspection CodeBlock2Expr
+            wrapCallToUserCode(firstNonNull(parentCallback, callback), () -> encoder.encode(request.getEntity(), byteBufferCallback));
         } else {
-            doRequest(null, request, callback);
+            doRequest(null, request, parentCallback, callback);
         }
     }
 
-    private void doRequest(ByteBuffer buffer, Request request, Callback<Response<?>> callback) {
+    private void doRequest(ByteBuffer buffer, Request request, Callback<Response<?>> parentCallback, Callback<Response<?>> callback) {
+        SerializedRequest serializedRequest = convertRequestIntoSerializedRequest(buffer, request);
+
+        Client.ClientCallback clientCallback = new ClientCallbackImpl(callback, this::createDecoder);
+
         //noinspection OptionalUsedAsFieldOrParameterType
-        wrapCallToUserCode(callback, () -> client.request(convertRequestIntoSerializedRequest(buffer, request), new ClientCallbackImpl(callback, this::createDecoder)));
+        wrapCallToUserCode(firstNonNull(parentCallback, callback), () -> client.request(serializedRequest, clientCallback));
     }
 
     private ResponseDecoder createDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
@@ -588,42 +577,35 @@ public class AsyncInvocationHandler implements InvocationHandler {
     }
 
     private ResponseDecoder createFailureDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
-        return wrapCallToUserCode(callback, () -> errorDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
+        final Callback<Object> responseDecoderCallback = new TransformingCallback<Object, Response<?>>(callback) {
 
             @Override
-            public void onSuccess(Object result) {
-                Response<?> response = Response.builder()
-                        .entity(isOptionalResponseType ? Optional.ofNullable(result) : result)
+            protected Response<?> convert(Object entity) {
+                return Response.builder()
+                        .entity(isOptionalResponseType ? Optional.ofNullable(entity) : entity)
                         .build();
-
-                callback.onSuccess(response);
             }
+        };
 
-            @Override
-            public void onFailure(Throwable e) {
-                callback.onFailure(e);
-            }
-
-        }));
+        return wrapCallToUserCode(callback, () -> errorDecoder.create(clientResponse, effectiveReturnType, wrap(responseDecoderCallback)));
     }
 
     private ResponseDecoder createSuccessDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
-        return wrapCallToUserCode(callback, () -> responseDecoder.create(clientResponse, effectiveReturnType, new Callback<Object>() {
+        final Callback<Object> responseDecoderCallback = new TransformingCallback<Object, Response<?>>(callback) {
 
             @Override
-            public void onSuccess(Object result) {
-                Response<?> response = Response.builder()
-                        .entity(isOptionalResponseType ? Optional.ofNullable(result) : result)
+            protected Response<?> convert(Object entity) {
+                return Response.builder()
+                        .entity(isOptionalResponseType ? Optional.ofNullable(entity) : entity)
                         .build();
-
-                callback.onSuccess(response);
             }
+        };
 
-            @Override
-            public void onFailure(Throwable e) {
-                callback.onFailure(e);
-            }
-        }));
+        return wrapCallToUserCode(callback, () -> responseDecoder.create(clientResponse, effectiveReturnType, wrap(responseDecoderCallback)));
+    }
+
+    private <T> Callback<T> wrap(Callback<T> callback) {
+        return new ConditionallyProxyingCallabck<>(callback, true);
     }
 
     private void wrapCallToUserCode(Callback<?> callback, Runnable runnable) {
@@ -641,6 +623,21 @@ public class AsyncInvocationHandler implements InvocationHandler {
             callback.onFailure(e);
             return null;
         }
+    }
+
+    private Callback<Response<?>> wrapResponseCallback(Callback<Response<Object>> responseCallback) {
+        return wrap(new TransformingCallback<Response<?>, Response<Object>>(responseCallback) {
+
+            @Override
+            protected Response<Object> convert(Response<?> entity) {
+                // noinspection unchecked
+                return (Response<Object>) entity;
+            }
+        });
+    }
+
+    private <T> T firstNonNull(T one, T two) {
+        return one == null ? two : one;
     }
 
 }
