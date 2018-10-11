@@ -24,7 +24,6 @@ import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -47,7 +46,7 @@ public class ClientCallbackImpl implements Client.ClientCallback {
 
     @Override
     public Client.ContentCallback headers(ResponseHeaders responseHeaders) {
-        consumer = Optional.of(Objects.requireNonNull(factory.apply(responseHeaders, new Callback<Response<?>>() {
+        consumer = Optional.ofNullable(factory.apply(responseHeaders, new Callback<Response<?>>() {
             @Override
             public void onSuccess(Response<?> result) {
                 runIfNoTerminalOperationCalled(true, () -> callback.onSuccess(result));
@@ -57,7 +56,7 @@ public class ClientCallbackImpl implements Client.ClientCallback {
             public void onFailure(Throwable e) {
                 runIfNoTerminalOperationCalled(true, () -> callback.onFailure(e));
             }
-        })));
+        }));
 
         return content -> runIfNoTerminalOperationCalled(false, () -> consumer.ifPresent(c -> c.content(content)));
     }

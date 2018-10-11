@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
@@ -67,6 +68,11 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
     private static class TestException extends RuntimeException {
         public TestException(@NonNull String id) {
+            super("This is a mock exception for a unit test. id=" + id);
+        }
+    }
+    private static class AnotherTestException extends RuntimeException {
+        public AnotherTestException(@NonNull String id) {
             super("This is a mock exception for a unit test. id=" + id);
         }
     }
@@ -1067,6 +1073,74 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
             assertThat(cause).isInstanceOf(TestException.class);
             assertThat(cause).hasMessageContaining(id);
             assertThat(called).isTrue();
+        }
+    }
+
+    @Test(timeout = 1000)
+    public void testIfAllErrorResponseInterceptorCallbacksThrowException() {
+        final int count = 20;
+        String id = String.valueOf(UUID.randomUUID());
+
+        List<RequestInterceptor> interceptors = new ArrayList<>();
+
+        IntStream.range(0, count).mapToObj(index -> new RequestInterceptor() {
+            @Override
+            public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                callback.accept(request, new Callback<Response<Y>>() {
+
+                    @Override
+                    public void onSuccess(Response<Y> result) {
+                        log.error("onSuccess should not have been called", createInvalidCallException());
+                    }
+
+                    @Override
+                    public void onFailure(Throwable e) {
+                        throw new AnotherTestException("callback #" + index);
+                    }
+                });
+            }
+        }).forEach(interceptors::add);
+
+        interceptors.add(new RequestInterceptor() {
+
+            @Override
+            public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                callback.accept(request, new Callback<Response<Y>>() {
+
+                    @Override
+                    public void onSuccess(Response<Y> result) {
+                        log.error("onSuccess should not have been called", createInvalidCallException());
+                    }
+
+                    @Override
+                    public void onFailure(Throwable e) {
+                        responseCallback.onFailure(new TestException(id));
+                    }
+                });
+            }
+        });
+
+        TestApi test = TestApiBuilder.builder()
+                .client(new MockClient(500))
+                .requestInterceptors(interceptors)
+                .build()
+                .build();
+
+        try {
+            unwrap(test.eventuallyResult(id));
+            failBecauseExceptionWasNotThrown(ExecutionException.class);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+
+            for (int i = 0; i < count; i++) {
+                assertThat(cause).isInstanceOf(AnotherTestException.class);
+                assertThat(cause).hasMessage("This is a mock exception for a unit test. id=callback #" + i);
+                assertThat(cause.getSuppressed()).hasSize(1);
+                cause = cause.getSuppressed()[0];
+            }
+
+            assertThat(cause).isInstanceOf(TestException.class);
+            assertThat(cause).hasMessageContaining(id);
         }
     }
 

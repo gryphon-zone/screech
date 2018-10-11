@@ -18,11 +18,14 @@
 package zone.gryphon.screech.util;
 
 import lombok.experimental.UtilityClass;
+import zone.gryphon.screech.Callback;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Objects;
+import java.util.concurrent.Callable;
 
 @UtilityClass
 public final class Util {
@@ -69,6 +72,29 @@ public final class Util {
         builder.append(")");
 
         return builder.toString();
+    }
+
+    public static void runDangerousCode(Callback<?> callback, Executable executable) {
+        Objects.requireNonNull(callback, "Provided callback cannot be null");
+        Objects.requireNonNull(executable, "Provided executable cannot be null");
+
+        try {
+            executable.execute();
+        } catch (Throwable throwable) {
+            callback.onFailure(throwable);
+        }
+    }
+
+    public static <T> T runDangerousCode(Callback<?> callback, Callable<T> callable) {
+        Objects.requireNonNull(callback, "Provided callback cannot be null");
+        Objects.requireNonNull(callable, "Provided callable cannot be null");
+
+        try {
+            return callable.call();
+        } catch (Throwable throwable) {
+            callback.onFailure(throwable);
+            return null;
+        }
     }
 
 }
