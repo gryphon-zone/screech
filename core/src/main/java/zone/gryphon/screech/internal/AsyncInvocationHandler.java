@@ -15,7 +15,7 @@
  *
  */
 
-package zone.gryphon.screech.util;
+package zone.gryphon.screech.internal;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -32,13 +32,15 @@ import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.ResponseDecoderFactory;
 import zone.gryphon.screech.Target;
 import zone.gryphon.screech.exception.ScreechException;
-import zone.gryphon.screech.internal.ClientCallbackImpl;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.Request;
 import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.util.SimpleStringInterpolator;
+import zone.gryphon.screech.util.StringInterpolator;
+import zone.gryphon.screech.util.Util;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
@@ -55,10 +57,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -67,6 +70,71 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class AsyncInvocationHandler implements InvocationHandler {
+
+    private static abstract class TransformingCallback<T, R> implements Callback<T> {
+
+        private final Callback<R> proxy;
+
+        public TransformingCallback(Callback<R> proxy) {
+            this.proxy = Objects.requireNonNull(proxy, "proxy callback may not be null");
+        }
+
+        @Override
+        public void onSuccess(T result) {
+            proxy.onSuccess(convert(result));
+        }
+
+        @Override
+        public void onFailure(Throwable e) {
+            proxy.onFailure(e);
+        }
+
+        protected abstract R convert(T entity);
+    }
+
+    private static class ConditionallyProxyingCallabck<T> implements Callback<T> {
+
+        // set to the name of the first method that was called
+        private final AtomicReference<String> terminalMethodName = new AtomicReference<>();
+
+        private final Callback<T> proxy;
+
+        private final boolean throwException;
+
+        public ConditionallyProxyingCallabck(Callback<T> proxy, boolean throwException) {
+            this.proxy = Objects.requireNonNull(proxy, "proxy callback may not be null");
+            this.throwException = throwException;
+        }
+
+        @Override
+        public void onSuccess(T result) {
+            if (terminalMethodName.compareAndSet(null, "onSuccess")) {
+                proxy.onSuccess(result);
+            } else {
+                invokedAfterMethodCalled("onSuccess", null);
+            }
+        }
+
+        @Override
+        public void onFailure(Throwable e) {
+            if (terminalMethodName.compareAndSet(null, "onFailure")) {
+                proxy.onFailure(e);
+            } else {
+                invokedAfterMethodCalled("onFailure", e);
+            }
+        }
+
+        private void invokedAfterMethodCalled(String method, Throwable e) {
+            if (throwException) {
+                String message = String.format("Cannot invoke %s(), %s() already invoked", method, terminalMethodName.get());
+                if (e != null) {
+                    throw new IllegalStateException(message, e);
+                } else {
+                    throw new IllegalStateException(message);
+                }
+            }
+        }
+    }
 
     private static final Set<Type> WRAPPER_TYPES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             CompletableFuture.class,

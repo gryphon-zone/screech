@@ -15,7 +15,7 @@
  *
  */
 
-package zone.gryphon.screech.util;
+package zone.gryphon.screech.internal;
 
 
 import lombok.extern.slf4j.Slf4j;

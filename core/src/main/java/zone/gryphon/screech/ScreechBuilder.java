@@ -20,7 +20,7 @@ package zone.gryphon.screech;
 import lombok.NonNull;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import zone.gryphon.screech.util.AsyncInvocationHandler;
+import zone.gryphon.screech.internal.AsyncInvocationHandler;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;

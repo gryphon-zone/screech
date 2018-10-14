@@ -19,6 +19,7 @@ package zone.gryphon.screech.util;
 
 
 import lombok.extern.slf4j.Slf4j;
+import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -26,21 +27,26 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 
 @Slf4j
 public class SimpleStringInterpolatorTest {
 
+    private SimpleStringInterpolator create(String input) {
+        return new SimpleStringInterpolator(input);
+    }
+
     @Test
     public void testNoInterpolation() {
-        final StringInterpolator test = SimpleStringInterpolator.of("foo");
+        final StringInterpolator test = create("foo");
         assertThat(test.interpolate(Collections.emptyMap())).isEqualTo("foo");
     }
 
     @Test
     public void testSimpleInterpolation() {
-        final SimpleStringInterpolator test = (SimpleStringInterpolator) SimpleStringInterpolator.of("{foo}");
+        final SimpleStringInterpolator test = create("{foo}");
         assertThat(test.interpolate(Collections.singletonMap("foo", "bar"))).isEqualTo("bar");
         assertThat(test.getConstants()).isEqualTo(Collections.singletonList(null));
         assertThat(test.getParameterNames()).isEqualTo(Collections.singletonList("foo"));
@@ -48,7 +54,7 @@ public class SimpleStringInterpolatorTest {
 
     @Test
     public void testWithLeadingSpaceInterpolation() {
-        final SimpleStringInterpolator test = (SimpleStringInterpolator) SimpleStringInterpolator.of(" {foo}");
+        final SimpleStringInterpolator test = create(" {foo}");
         assertThat(test.interpolate(Collections.singletonMap("foo", "bar"))).isEqualTo(" bar");
         assertThat(test.getConstants()).isEqualTo(Arrays.asList(" ", null));
         assertThat(test.getParameterNames()).isEqualTo(Collections.singletonList("foo"));
@@ -56,7 +62,7 @@ public class SimpleStringInterpolatorTest {
 
     @Test
     public void testWithTrailingSpaceInterpolation() {
-        final SimpleStringInterpolator test = (SimpleStringInterpolator) SimpleStringInterpolator.of("{foo} ");
+        final SimpleStringInterpolator test = create("{foo} ");
         assertThat(test.interpolate(Collections.singletonMap("foo", "bar"))).isEqualTo("bar ");
         assertThat(test.getConstants()).isEqualTo(Arrays.asList(null, " "));
         assertThat(test.getParameterNames()).isEqualTo(Collections.singletonList("foo"));
@@ -64,7 +70,7 @@ public class SimpleStringInterpolatorTest {
 
     @Test
     public void testMultipleInterpolation() {
-        final SimpleStringInterpolator test = (SimpleStringInterpolator) SimpleStringInterpolator.of("{foo}");
+        final SimpleStringInterpolator test = create("{foo}");
         assertThat(test.interpolate(Collections.singletonMap("foo", "bar"))).isEqualTo("bar");
         assertThat(test.interpolate(Collections.singletonMap("foo", "baz"))).isEqualTo("baz");
         assertThat(test.getConstants()).isEqualTo(Collections.singletonList(null));
@@ -73,7 +79,7 @@ public class SimpleStringInterpolatorTest {
 
     @Test
     public void testMultipleInterpolationParams() {
-        final SimpleStringInterpolator test = (SimpleStringInterpolator) SimpleStringInterpolator.of("one={one}, two={two}, three={three}");
+        final SimpleStringInterpolator test = create("one={one}, two={two}, three={three}");
         assertThat(test.interpolate(of("one", "1", "two", "2", "three", "3"))).isEqualTo("one=1, two=2, three=3");
         assertThat(test.getConstants()).isEqualTo(Arrays.asList("one=", null, ", two=", null, ", three=", null));
         assertThat(test.getParameterNames()).isEqualTo(Arrays.asList("one", "two", "three"));
@@ -81,13 +87,17 @@ public class SimpleStringInterpolatorTest {
 
     @Test
     public void testNullInput() {
-        final StringInterpolator test = SimpleStringInterpolator.of(null);
-        assertThat(test.interpolate(Collections.singletonMap("foo", "bar"))).isEqualTo(null);
+        try {
+            create(null);
+            failBecauseExceptionWasNotThrown(NullPointerException.class);
+        } catch (NullPointerException e) {
+            assertThat(e.getMessage()).contains("input");
+        }
     }
 
     @Test
     public void testMissingValueFromMap() {
-        final StringInterpolator test = SimpleStringInterpolator.of("{foo}");
+        final StringInterpolator test = create("{foo}");
 
         try {
             test.interpolate(Collections.emptyMap());
@@ -108,42 +118,42 @@ public class SimpleStringInterpolatorTest {
     public void testInvalidInputStrings() {
 
         try {
-            SimpleStringInterpolator.of("foo {{}");
+            create("foo {{}");
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).isEqualTo("Found '{' character without matching '}' character in string 'foo {{}'");
         }
 
         try {
-            SimpleStringInterpolator.of("{foo {}");
+            create("{foo {}");
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).isEqualTo("Found '{' character without matching '}' character in string '{foo {}'");
         }
 
         try {
-            SimpleStringInterpolator.of("{foo{}}");
+            create("{foo{}}");
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).isEqualTo("Found '{' character without matching '}' character in string '{foo{}}'");
         }
 
         try {
-            SimpleStringInterpolator.of("{{foo}}");
+            create("{{foo}}");
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).isEqualTo("Found '{' character without matching '}' character in string '{{foo}}'");
         }
 
         try {
-            SimpleStringInterpolator.of("foo }");
+            create("foo }");
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).isEqualTo("Found '}' character without matching '{' character in string 'foo }'");
         }
 
         try {
-            SimpleStringInterpolator.of("foo {");
+            create("foo {");
             failBecauseExceptionWasNotThrown(IllegalArgumentException.class);
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).isEqualTo("Found '{' character without matching '}' character in string 'foo {'");

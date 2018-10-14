@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @RunWith(Parameterized.class)
-public class UtilTest {
+public class UtilToStringMethodTest {
 
     @Value
     @RequiredArgsConstructor
