@@ -15,7 +15,7 @@
  *
  */
 
-package zone.gryphon.screech.util;
+package zone.gryphon.screech.internal;
 
 
 import org.junit.Test;

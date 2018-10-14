@@ -15,7 +15,7 @@
  *
  */
 
-package zone.gryphon.screech.util;
+package zone.gryphon.screech.internal;
 
 
 import lombok.Builder;
@@ -35,6 +35,8 @@ import zone.gryphon.screech.model.Request;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.util.ExpandableByteBuffer;
+import zone.gryphon.screech.util.HardCodedTarget;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;

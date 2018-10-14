@@ -20,8 +20,31 @@ package zone.gryphon.screech.util;
 import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 public class ExpandableByteBuffer {
+
+    private static class ByteBufferInputStream extends InputStream {
+
+        private final ByteBuffer buffer;
+
+        private int currentOffset;
+
+        public ByteBufferInputStream(ByteBuffer buffer) {
+            this.buffer = Objects.requireNonNull(buffer, "buffer").duplicate();
+            this.currentOffset = 0;
+        }
+
+        @Override
+        public int read() {
+
+            if (currentOffset >= buffer.limit()) {
+                return -1;
+            }
+
+            return buffer.get(currentOffset++);
+        }
+    }
 
     private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.wrap(new byte[0]);
 

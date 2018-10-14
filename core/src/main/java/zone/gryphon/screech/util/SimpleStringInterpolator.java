@@ -42,31 +42,6 @@ public class SimpleStringInterpolator implements StringInterpolator {
         return requiresInterpolation(input) ? new SimpleStringInterpolator(input) : params -> input;
     }
 
-    @Getter(AccessLevel.PACKAGE)
-    private final List<String> constants;
-
-    @Getter(AccessLevel.PACKAGE)
-    private final List<String> parameterNames;
-
-    private final int constantSize;
-    private final String input;
-
-    private SimpleStringInterpolator(@NonNull String input) {
-        ArrayList<String> tempParamNames = new ArrayList<>();
-        ArrayList<String> tempConstants = new ArrayList<>();
-
-        calculateParams(input, tempConstants, tempParamNames);
-
-        // reduce memory footprint, since we know all operations after this are read only
-        tempConstants.trimToSize();
-        tempParamNames.trimToSize();
-
-        this.input = input;
-        this.constants = Collections.unmodifiableList(tempConstants);
-        this.parameterNames = Collections.unmodifiableList(tempParamNames);
-        this.constantSize = this.constants.stream().filter(Objects::nonNull).mapToInt(String::length).sum();
-    }
-
     private static void calculateParams(String input, List<String> constants, List<String> params) {
         boolean dirty = false;
         boolean inParameterName = false;
@@ -112,6 +87,34 @@ public class SimpleStringInterpolator implements StringInterpolator {
         }
     }
 
+    //  end of static methods/constants  //
+
+    @Getter(AccessLevel.PACKAGE) // visible for testing
+    private final List<String> constants;
+
+    @Getter(AccessLevel.PACKAGE) // visible for testing
+    private final List<String> parameterNames;
+
+    private final int constantSize;
+
+    private final String input;
+
+    // visible for testing
+    SimpleStringInterpolator(@NonNull String input) {
+        ArrayList<String> tempParamNames = new ArrayList<>();
+        ArrayList<String> tempConstants = new ArrayList<>();
+
+        calculateParams(input, tempConstants, tempParamNames);
+
+        // reduce memory footprint, since we know all operations after this are read only
+        tempConstants.trimToSize();
+        tempParamNames.trimToSize();
+
+        this.input = input;
+        this.constants = Collections.unmodifiableList(tempConstants);
+        this.parameterNames = Collections.unmodifiableList(tempParamNames);
+        this.constantSize = this.constants.stream().filter(Objects::nonNull).mapToInt(String::length).sum();
+    }
 
     public String interpolate(@NonNull Map<String, String> p) {
         StringBuilder out = new StringBuilder(constantSize + calculateParamLength(p));
