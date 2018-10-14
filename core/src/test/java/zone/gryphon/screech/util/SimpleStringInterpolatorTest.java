@@ -19,6 +19,7 @@ package zone.gryphon.screech.util;
 
 
 import lombok.extern.slf4j.Slf4j;
+import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -26,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 
@@ -85,8 +87,12 @@ public class SimpleStringInterpolatorTest {
 
     @Test
     public void testNullInput() {
-        final StringInterpolator test = create(null);
-        assertThat(test.interpolate(Collections.singletonMap("foo", "bar"))).isEqualTo(null);
+        try {
+            create(null);
+            failBecauseExceptionWasNotThrown(NullPointerException.class);
+        } catch (NullPointerException e) {
+            assertThat(e.getMessage()).contains("input");
+        }
     }
 
     @Test
