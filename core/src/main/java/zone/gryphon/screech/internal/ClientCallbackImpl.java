@@ -25,6 +25,7 @@ import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 
 @Slf4j
@@ -34,14 +35,17 @@ public class ClientCallbackImpl implements Client.ClientCallback {
 
     private final BiFunction<ResponseHeaders, Callback<Response<?>>, ResponseDecoder> factory;
 
+    private final Executor executor;
+
     private volatile boolean terminalOperationCalled = false;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private volatile Optional<ResponseDecoder> consumer = Optional.empty();
 
-    public ClientCallbackImpl(Callback<Response<?>> callback, BiFunction<ResponseHeaders, Callback<Response<?>>, ResponseDecoder> factory) {
+    public ClientCallbackImpl(Callback<Response<?>> callback, BiFunction<ResponseHeaders, Callback<Response<?>>, ResponseDecoder> factory, Executor executor) {
         this.callback = callback;
         this.factory = factory;
+        this.executor = executor;
     }
 
     @Override
@@ -49,21 +53,21 @@ public class ClientCallbackImpl implements Client.ClientCallback {
         consumer = Optional.ofNullable(factory.apply(responseHeaders, new Callback<Response<?>>() {
             @Override
             public void onSuccess(Response<?> result) {
-                runIfNoTerminalOperationCalled(true, () -> callback.onSuccess(result));
+                runIfNoTerminalOperationCalled(true, true, () -> callback.onSuccess(result));
             }
 
             @Override
             public void onFailure(Throwable e) {
-                runIfNoTerminalOperationCalled(true, () -> callback.onFailure(e));
+                runIfNoTerminalOperationCalled(true, true, () -> callback.onFailure(e));
             }
         }));
 
-        return content -> runIfNoTerminalOperationCalled(false, () -> consumer.ifPresent(c -> c.content(content)));
+        return content -> runIfNoTerminalOperationCalled(false, false, () -> consumer.ifPresent(c -> c.content(content)));
     }
 
     @Override
     public void abort(Throwable t) {
-        runIfNoTerminalOperationCalled(true, () -> {
+        runIfNoTerminalOperationCalled(true, true, () -> {
 
             try {
                 consumer.ifPresent(ResponseDecoder::abort);
@@ -78,17 +82,21 @@ public class ClientCallbackImpl implements Client.ClientCallback {
 
     @Override
     public void complete() {
-        runIfNoTerminalOperationCalled(true, () -> consumer.ifPresent(ResponseDecoder::complete));
+        runIfNoTerminalOperationCalled(true, false, () -> consumer.ifPresent(ResponseDecoder::complete));
     }
 
-    private void runIfNoTerminalOperationCalled(boolean markAsTerminalOperationComplete, Runnable runnable) {
+    private void runIfNoTerminalOperationCalled(boolean markAsTerminalOperationComplete, boolean async, Runnable runnable) {
 
         if (terminalOperationCalled) {
             return;
         }
 
         try {
-            runnable.run();
+            if (async) {
+                executor.execute(runnable);
+            } else {
+                runnable.run();
+            }
         } finally {
             if (markAsTerminalOperationComplete) {
                 terminalOperationCalled = true;

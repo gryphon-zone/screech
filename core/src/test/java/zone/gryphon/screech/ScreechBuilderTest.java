@@ -83,7 +83,7 @@ public class ScreechBuilderTest {
         }
     }
 
-    @Test
+    @Test(timeout = 5000)
     public void name() throws Exception {
         TestInterface test = new ScreechBuilder(new MockClient())
                 .build(TestInterface.class, new HardCodedTarget("http://localhost"));

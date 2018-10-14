@@ -30,6 +30,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 @Slf4j
 @ToString
@@ -42,6 +44,10 @@ public class ScreechBuilder {
     private ResponseDecoderFactory responseDecoder = new ResponseDecoderFactory.SuccessResponseDecoderFactory();
 
     private ResponseDecoderFactory errorDecoder = new ResponseDecoderFactory.ErrorResponseDecoderFactory();
+
+    private Executor outboundExecutor = Executors.newCachedThreadPool();
+
+    private Executor responseExecutor = outboundExecutor;
 
     private Client client;
 
@@ -79,7 +85,7 @@ public class ScreechBuilder {
         Map<Method, InvocationHandler> map = new HashMap<>();
 
         for (Method method : clazz.getMethods()) {
-            map.put(method, AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target));
+            map.put(method, AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, outboundExecutor, responseExecutor));
         }
 
         InvocationHandler handler = (proxy, method, args) -> map.get(method).invoke(proxy, method, args);

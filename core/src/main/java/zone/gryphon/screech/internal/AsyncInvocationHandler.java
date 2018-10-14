@@ -61,6 +61,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -148,8 +150,10 @@ public class AsyncInvocationHandler implements InvocationHandler {
             ResponseDecoderFactory responseDecoder,
             ResponseDecoderFactory errorDecoder,
             Client client,
-            Target target) {
-        return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target);
+            Target target,
+            Executor outboundExecutor,
+            Executor responseExecutor) {
+        return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, outboundExecutor, responseExecutor);
     }
 
     @Getter(AccessLevel.PROTECTED)
@@ -193,6 +197,10 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private final Target target;
 
+    private final Executor outboundExecutor;
+
+    private final Executor responseExecutor;
+
     private AsyncInvocationHandler(
             @NonNull Method method,
             @NonNull RequestEncoder encoder,
@@ -200,7 +208,9 @@ public class AsyncInvocationHandler implements InvocationHandler {
             @NonNull ResponseDecoderFactory responseDecoder,
             @NonNull ResponseDecoderFactory errorDecoder,
             @NonNull Client client,
-            @NonNull Target target) {
+            @NonNull Target target,
+            @NonNull Executor outboundExecutor,
+            @NonNull Executor responseExecutor) {
 
         this.target = target;
 
@@ -213,6 +223,10 @@ public class AsyncInvocationHandler implements InvocationHandler {
         this.errorDecoder = errorDecoder;
 
         this.client = client;
+
+        this.outboundExecutor = outboundExecutor;
+
+        this.responseExecutor = responseExecutor;
 
         this.effectiveReturnType = parseReturnType(method.getGenericReturnType());
 
@@ -286,30 +300,44 @@ public class AsyncInvocationHandler implements InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args) {
         CompletableFuture<Object> response = new CompletableFuture<>();
 
-        try {
-            setUpInterceptors(0, buildRequest(args), wrap(new Callback<Response<?>>() {
-                @Override
-                public void onSuccess(Response<?> result) {
-                    response.complete(result == null ? null : result.getEntity());
-                }
-
-                @Override
-                public void onFailure(Throwable e) {
-                    response.completeExceptionally(e);
-                }
-            }), response::completeExceptionally);
-        } catch (Throwable e) {
-            response.completeExceptionally(e);
-        }
-
+        // if the response type is async, then run the request in a separate thread.
+        // otherwise, since the client is going to block anyway, run it in the current thread
         if (isAsyncResponseType) {
+
+            try {
+                outboundExecutor.execute(() -> invoke(response, args));
+            } catch (Throwable t) {
+                response.completeExceptionally(ScreechException.handle(t));
+            }
+
             return response;
         } else {
             try {
+
+                invoke(response, args);
+
                 return response.get();
             } catch (Throwable e) {
                 throw ScreechException.handle(e);
             }
+        }
+    }
+
+    private void invoke(CompletableFuture<Object> future, Object[] args) {
+        try {
+            setUpInterceptors(0, buildRequest(args), wrap(new Callback<Response<?>>() {
+                @Override
+                public void onSuccess(Response<?> result) {
+                    future.complete(result == null ? null : result.getEntity());
+                }
+
+                @Override
+                public void onFailure(Throwable e) {
+                    future.completeExceptionally(e);
+                }
+            }), future::completeExceptionally);
+        } catch (Throwable e) {
+            future.completeExceptionally(e);
         }
     }
 
@@ -648,7 +676,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
     private void doRequest(ByteBuffer buffer, Request request, Callback<Response<?>> callback) {
         SerializedRequest serializedRequest = convertRequestIntoSerializedRequest(buffer, request);
 
-        Client.ClientCallback clientCallback = new ClientCallbackImpl(callback, this::createDecoder);
+        Client.ClientCallback clientCallback = new ClientCallbackImpl(callback, this::createDecoder, responseExecutor);
 
         Util.runDangerousCode(callback, () -> client.request(serializedRequest, clientCallback));
     }
