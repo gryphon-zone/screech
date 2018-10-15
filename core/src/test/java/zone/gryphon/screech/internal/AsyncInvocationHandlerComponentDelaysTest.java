@@ -39,28 +39,29 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 
+@SuppressWarnings("CodeBlock2Expr")
 @Slf4j
 public class AsyncInvocationHandlerComponentDelaysTest {
 
-    private static final ExecutorService THREADPOOL = Executors.newCachedThreadPool();
+    private static final ScheduledExecutorService THREADPOOL = Executors.newScheduledThreadPool(5 * Runtime.getRuntime().availableProcessors());
 
     private static final long DELAY = 250L;
 
@@ -215,15 +216,7 @@ public class AsyncInvocationHandlerComponentDelaysTest {
         }
     }
 
-    private static void sleep(@NonNull Duration duration) {
-        try {
-            Thread.sleep(duration.toMillis());
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Failed to sleep for " + duration.toMillis() + "ms", e);
-        }
-    }
-
-    private static void testHappyPathHelper(Function<String, TestApiBuilder.TestApiBuilderBuilder> supplier) throws Exception {
+    private static void testHappyPathHelper(Function<String, TestApiBuilder.TestApiBuilderBuilder> supplier) {
         String id = String.valueOf(UUID.randomUUID());
 
         // build the API first so that initialization time doesn't affect result
@@ -237,14 +230,18 @@ public class AsyncInvocationHandlerComponentDelaysTest {
         // since submitting request should be non-blocking, it should have taken less than 250ms to submit the request
         assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)).isLessThan(DELAY);
 
-        // get the result and make sure it's the correct one
-        assertThat(unwrap(future)).isEqualTo("response: " + id);
+        try {
+            // get the result and make sure it's the correct one
+            assertThat(unwrap(future)).isEqualTo("response: " + id);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
 
         // since one component of the client should delay for 250ms, getting the final result should take more than that
         assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)).isGreaterThanOrEqualTo(DELAY);
     }
 
-    private static void testFailurePathHelper(Function<String, TestApiBuilder.TestApiBuilderBuilder> supplier) throws Exception {
+    private static void testFailurePathHelper(Function<String, TestApiBuilder.TestApiBuilderBuilder> supplier) {
         String id = String.valueOf(UUID.randomUUID());
 
         // build the API first so that initialization time doesn't affect result
@@ -275,29 +272,27 @@ public class AsyncInvocationHandlerComponentDelaysTest {
     }
 
     @Test
-    public void testIfRequestEncoderIsAsyncSuccess() throws Exception {
+    public void testIfRequestEncoderIsAsyncAndSucceeds() {
         testHappyPathHelper(id -> TestApiBuilder.builder()
                 .requestEncoder(new RequestEncoder() {
                     @Override
                     public <T> void encode(T entity, Callback<ByteBuffer> callback) {
-                        THREADPOOL.submit(() -> {
-                            sleep(Duration.ofMillis(DELAY));
+                        THREADPOOL.schedule(() -> {
                             callback.onSuccess(ByteBuffer.wrap(String.valueOf(entity).getBytes(UTF_8)));
-                        });
+                        }, DELAY, MILLISECONDS);
                     }
                 }));
     }
 
     @Test
-    public void testIfRequestEncoderIsAsyncFailure() throws Exception {
+    public void testIfRequestEncoderIsAsyncAndFails() {
         testFailurePathHelper(id -> TestApiBuilder.builder()
                 .requestEncoder(new RequestEncoder() {
                     @Override
                     public <T> void encode(T entity, Callback<ByteBuffer> callback) {
-                        THREADPOOL.submit(() -> {
-                            sleep(Duration.ofMillis(DELAY));
+                        THREADPOOL.schedule(() -> {
                             callback.onFailure(new TestException(id));
-                        });
+                        }, DELAY, MILLISECONDS);
                     }
                 }));
     }
