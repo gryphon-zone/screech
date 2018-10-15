@@ -31,11 +31,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @ToString
 public class ScreechBuilder {
+
+    private final int numCores = Runtime.getRuntime().availableProcessors();
 
     private RequestEncoder requestEncoder = new RequestEncoder.StringRequestEncoder();
 
@@ -45,7 +49,8 @@ public class ScreechBuilder {
 
     private ResponseDecoderFactory errorDecoder = new ResponseDecoderFactory.ErrorResponseDecoderFactory();
 
-    private Executor outboundExecutor = Executors.newCachedThreadPool();
+    private Executor outboundExecutor = new ThreadPoolExecutor(numCores, numCores,
+            Long.MAX_VALUE, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
     private Executor responseExecutor = outboundExecutor;
 
