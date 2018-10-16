@@ -82,7 +82,7 @@ public class ClientCallbackImpl implements Client.ClientCallback {
 
     @Override
     public void complete() {
-        runIfNoTerminalOperationCalled(true, false, () -> consumer.ifPresent(ResponseDecoder::complete));
+        runIfNoTerminalOperationCalled(false, false, () -> consumer.ifPresent(ResponseDecoder::complete));
     }
 
     private void runIfNoTerminalOperationCalled(boolean markAsTerminalOperationComplete, boolean async, Runnable runnable) {

@@ -20,7 +20,10 @@ package zone.gryphon.screech.internal;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.Client;
 import zone.gryphon.screech.RequestEncoder;
@@ -30,6 +33,8 @@ import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.ResponseDecoderFactory;
 import zone.gryphon.screech.ScreechBuilder;
 import zone.gryphon.screech.Target;
+import zone.gryphon.screech.model.Request;
+import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
 import zone.gryphon.screech.util.ExpandableByteBuffer;
@@ -50,6 +55,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -271,7 +277,136 @@ public class AsyncInvocationHandlerComponentDelaysTest {
         }
     }
 
-    @Test
+    @Rule
+    public final TestName testName = new TestName();
+
+    @Before
+    public void setUp() {
+        log.info("Running test {}", testName.getMethodName());
+    }
+
+    @Test(timeout = 5000)
+    public void testIfRequestInterceptorIsAsyncAndSucceedsAndDoesNotPropagateRequest() {
+        testHappyPathHelper(id -> TestApiBuilder.builder()
+                .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        THREADPOOL.schedule(() -> {
+                            responseCallback.onSuccess(Response.builder().entity(String.format("response: %s", id)).build());
+                        }, DELAY, MILLISECONDS);
+                    }
+                })));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfRequestInterceptorIsAsyncAndSucceedsAndPropagatesRequest() {
+        testHappyPathHelper(id -> TestApiBuilder.builder()
+                .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        THREADPOOL.schedule(() -> {
+                            callback.accept(request, new Callback<Response<Y>>() {
+                                @Override
+                                public void onSuccess(Response<Y> result) {
+                                    responseCallback.onSuccess(result);
+                                }
+
+                                @Override
+                                public void onFailure(Throwable e) {
+
+                                }
+                            });
+                        }, DELAY, MILLISECONDS);
+                    }
+                })));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfRequestAndResponseInterceptorsAreAsyncAndSucceed() {
+        testHappyPathHelper(id -> TestApiBuilder.builder()
+                .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        THREADPOOL.schedule(() -> {
+                            callback.accept(request, new Callback<Response<Y>>() {
+                                @Override
+                                public void onSuccess(Response<Y> result) {
+                                    THREADPOOL.schedule(() -> {
+                                        responseCallback.onSuccess(result);
+                                    }, DELAY, MILLISECONDS);
+                                }
+
+                                @Override
+                                public void onFailure(Throwable e) {
+
+                                }
+                            });
+                        }, DELAY, MILLISECONDS);
+                    }
+                })));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfRequestInterceptorIsAsyncAndFails() {
+        testFailurePathHelper(id -> TestApiBuilder.builder()
+                .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        THREADPOOL.schedule(() -> {
+                            responseCallback.onFailure(new TestException(id));
+                        }, DELAY, MILLISECONDS);
+                    }
+                })));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfResponseInterceptorIsAsyncAndSucceeds() {
+        testHappyPathHelper(id -> TestApiBuilder.builder()
+                .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                THREADPOOL.schedule(() -> {
+                                    responseCallback.onSuccess(Response.builder().entity(String.format("response: %s", id)).build());
+                                }, DELAY, MILLISECONDS);
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+
+                            }
+                        });
+                    }
+                })));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfResponseInterceptorIsAsyncAndFails() {
+        testFailurePathHelper(id -> TestApiBuilder.builder()
+                .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
+                    @Override
+                    public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        callback.accept(request, new Callback<Response<Y>>() {
+                            @Override
+                            public void onSuccess(Response<Y> result) {
+                                THREADPOOL.schedule(() -> {
+                                    responseCallback.onFailure(new TestException(id));
+                                }, DELAY, MILLISECONDS);
+                            }
+
+                            @Override
+                            public void onFailure(Throwable e) {
+
+                            }
+                        });
+                    }
+                })));
+    }
+
+
+    @Test(timeout = 5000)
     public void testIfRequestEncoderIsAsyncAndSucceeds() {
         testHappyPathHelper(id -> TestApiBuilder.builder()
                 .requestEncoder(new RequestEncoder() {
@@ -284,7 +419,7 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 }));
     }
 
-    @Test
+    @Test(timeout = 5000)
     public void testIfRequestEncoderIsAsyncAndFails() {
         testFailurePathHelper(id -> TestApiBuilder.builder()
                 .requestEncoder(new RequestEncoder() {
@@ -296,4 +431,144 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                     }
                 }));
     }
+
+    @Test(timeout = 5000)
+    public void testIfClientIsAsyncAndSucceeds() {
+        testHappyPathHelper(id -> TestApiBuilder.builder()
+                .client((request, callback) -> {
+                    final CompletableFuture<Client.ContentCallback> future = new CompletableFuture<>();
+
+                    byte[] bytes = String.format("response: %s", id).getBytes(UTF_8);
+
+                    // deliver every byte of the content asynchronously
+                    CompletableFuture<Client.ContentCallback> localFuture = future;
+
+                    for (byte b : bytes) {
+                        localFuture = localFuture.thenApplyAsync(contentCallback -> {
+                            contentCallback.content(ByteBuffer.wrap(new byte[]{b}));
+                            return contentCallback;
+                        }, THREADPOOL);
+                    }
+
+                    localFuture.thenRunAsync(callback::complete, THREADPOOL);
+
+                    THREADPOOL.schedule(() -> {
+                        future.complete(callback.headers(ResponseHeaders.builder().status(200).build()));
+                    }, DELAY, MILLISECONDS);
+                }));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfClientIsAsyncAndFails() {
+        testFailurePathHelper(id -> TestApiBuilder.builder()
+                .client((request, callback) -> {
+                    final CompletableFuture<Client.ContentCallback> future = new CompletableFuture<>();
+
+                    byte[] bytes = String.format("response: %s", id).getBytes(UTF_8);
+
+                    // deliver every byte of the content asynchronously
+                    CompletableFuture<Client.ContentCallback> localFuture = future;
+
+                    for (byte b : bytes) {
+                        localFuture = localFuture.thenApplyAsync(contentCallback -> {
+                            contentCallback.content(ByteBuffer.wrap(new byte[]{b}));
+                            return contentCallback;
+                        }, THREADPOOL);
+                    }
+
+                    localFuture.thenRunAsync(() -> callback.abort(new TestException(id)), THREADPOOL);
+
+                    THREADPOOL.schedule(() -> {
+                        future.complete(callback.headers(ResponseHeaders.builder().status(200).build()));
+                    }, DELAY, MILLISECONDS);
+                }));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfResponseDecoderIsAsyncAndSucceeds() {
+        testHappyPathHelper(id -> TestApiBuilder.builder()
+                .responseDecoderFactory((response, type, callback) -> new ResponseDecoder() {
+
+                    private final ExpandableByteBuffer expandableByteBuffer = ExpandableByteBuffer.createEmpty();
+
+                    @Override
+                    public void content(ByteBuffer content) {
+                        expandableByteBuffer.append(content);
+                    }
+
+                    @Override
+                    public void complete() {
+                        THREADPOOL.schedule(() -> {
+                            callback.onSuccess(AsyncInvocationHandlerComponentDelaysTest.toString(expandableByteBuffer.createInputStream()));
+                        }, DELAY, MILLISECONDS);
+                    }
+                }));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfResponseDecoderIsAsyncAndFails() {
+        testFailurePathHelper(id -> TestApiBuilder.builder()
+                .responseDecoderFactory((response, type, callback) -> new ResponseDecoder() {
+
+                    private final ExpandableByteBuffer expandableByteBuffer = ExpandableByteBuffer.createEmpty();
+
+                    @Override
+                    public void content(ByteBuffer content) {
+                        expandableByteBuffer.append(content);
+                    }
+
+                    @Override
+                    public void complete() {
+                        THREADPOOL.schedule(() -> {
+                            callback.onFailure(new TestException(id));
+                        }, DELAY, MILLISECONDS);
+                    }
+                }));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfErrorDecoderIsAsyncAndSucceeds() {
+        testHappyPathHelper(id -> TestApiBuilder.builder()
+                .client(new MockClient(500))
+                .errorDecoderFactory((response, type, callback) -> new ResponseDecoder() {
+
+                    private final ExpandableByteBuffer expandableByteBuffer = ExpandableByteBuffer.createEmpty();
+
+                    @Override
+                    public void content(ByteBuffer content) {
+                        expandableByteBuffer.append(content);
+                    }
+
+                    @Override
+                    public void complete() {
+                        THREADPOOL.schedule(() -> {
+                            callback.onSuccess(AsyncInvocationHandlerComponentDelaysTest.toString(expandableByteBuffer.createInputStream()));
+                        }, DELAY, MILLISECONDS);
+                    }
+                }));
+    }
+
+    @Test(timeout = 5000)
+    public void testIfErrorDecoderIsAsyncAndFails() {
+        testFailurePathHelper(id -> TestApiBuilder.builder()
+                .client(new MockClient(500))
+                .errorDecoderFactory((response, type, callback) -> new ResponseDecoder() {
+
+                    private final ExpandableByteBuffer expandableByteBuffer = ExpandableByteBuffer.createEmpty();
+
+                    @Override
+                    public void content(ByteBuffer content) {
+                        expandableByteBuffer.append(content);
+                    }
+
+                    @Override
+                    public void complete() {
+                        THREADPOOL.schedule(() -> {
+                            callback.onFailure(new TestException(id));
+                        }, DELAY, MILLISECONDS);
+                    }
+                }));
+    }
+
+
 }
