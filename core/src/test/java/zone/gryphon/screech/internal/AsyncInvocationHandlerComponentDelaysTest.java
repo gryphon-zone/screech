@@ -53,8 +53,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -67,7 +69,17 @@ import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 @Slf4j
 public class AsyncInvocationHandlerComponentDelaysTest {
 
-    private static final ScheduledExecutorService THREADPOOL = Executors.newScheduledThreadPool(5 * Runtime.getRuntime().availableProcessors());
+    private static final String THREADPOOL_NAME_PREFIX = "test-thread-" + UUID.randomUUID().toString();
+
+    private static final ScheduledExecutorService THREADPOOL = Executors.newScheduledThreadPool(5 * Runtime.getRuntime().availableProcessors(), new ThreadFactory() {
+
+        private final AtomicInteger threadId = new AtomicInteger();
+
+        @Override
+        public Thread newThread(Runnable r) {
+            return new Thread(r, THREADPOOL_NAME_PREFIX + "-" + threadId.getAndIncrement());
+        }
+    });
 
     private static final long DELAY = 250L;
 
@@ -222,6 +234,29 @@ public class AsyncInvocationHandlerComponentDelaysTest {
         }
     }
 
+    private static <T> CompletableFuture<T> ensureNotCompletedUsingTestThreadPool(CompletableFuture<T> future) {
+        return future.handle((result, throwable) -> {
+
+            log.info("Future completed in thread \"{}\"", Thread.currentThread().getName());
+
+            assertThat(Thread.currentThread().getName()).doesNotContain(THREADPOOL_NAME_PREFIX);
+
+            if (throwable instanceof RuntimeException) {
+                throw (RuntimeException) throwable;
+            }
+
+            if (throwable instanceof Error) {
+                throw (Error) throwable;
+            }
+
+            if (throwable != null) {
+                throw new RuntimeException(throwable);
+            }
+
+            return result;
+        });
+    }
+
     private static void testHappyPathHelper(Function<String, TestApiBuilder.TestApiBuilderBuilder> supplier) {
         String id = String.valueOf(UUID.randomUUID());
 
@@ -231,7 +266,7 @@ public class AsyncInvocationHandlerComponentDelaysTest {
         long startTime = System.nanoTime();
 
         // submit request, this should be non-blocking
-        CompletableFuture<String> future = api.eventuallyResult(id);
+        CompletableFuture<String> future = ensureNotCompletedUsingTestThreadPool(api.eventuallyResult(id));
 
         // since submitting request should be non-blocking, it should have taken less than 250ms to submit the request
         assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)).isLessThan(DELAY);
@@ -240,7 +275,13 @@ public class AsyncInvocationHandlerComponentDelaysTest {
             // get the result and make sure it's the correct one
             assertThat(unwrap(future)).isEqualTo("response: " + id);
         } catch (ExecutionException e) {
-            throw new RuntimeException(e);
+            Throwable cause = e.getCause();
+
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+
+            throw new RuntimeException(cause);
         }
 
         // since one component of the client should delay for 250ms, getting the final result should take more than that
@@ -256,7 +297,7 @@ public class AsyncInvocationHandlerComponentDelaysTest {
         long startTime = System.nanoTime();
 
         // submit request, this should be non-blocking
-        CompletableFuture<String> future = api.eventuallyResult(id);
+        CompletableFuture<String> future = ensureNotCompletedUsingTestThreadPool(api.eventuallyResult(id));
 
         // since submitting request should be non-blocking, it should have taken less than 250ms to submit the request
         assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)).isLessThan(DELAY);
@@ -271,6 +312,11 @@ public class AsyncInvocationHandlerComponentDelaysTest {
             assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)).isGreaterThanOrEqualTo(DELAY);
 
             Throwable cause = e.getCause();
+
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+
             assertThat(cause).isNotNull();
             assertThat(cause).isInstanceOf(TestException.class);
             assertThat(cause.getMessage()).isEqualTo("This is a mock exception for a unit test. id=" + id);

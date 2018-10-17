@@ -21,6 +21,7 @@ import lombok.NonNull;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.internal.AsyncInvocationHandler;
+import zone.gryphon.screech.internal.ScreechThreadFactory;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -50,7 +51,7 @@ public class ScreechBuilder {
     private ResponseDecoderFactory errorDecoder = new ResponseDecoderFactory.ErrorResponseDecoderFactory();
 
     private Executor outboundExecutor = new ThreadPoolExecutor(numCores, numCores,
-            Long.MAX_VALUE, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+            Long.MAX_VALUE, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), new ScreechThreadFactory("ScreechClient"));
 
     private Executor responseExecutor = outboundExecutor;
 
