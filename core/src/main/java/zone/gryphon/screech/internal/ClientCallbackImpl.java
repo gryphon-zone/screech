@@ -18,90 +18,70 @@
 package zone.gryphon.screech.internal;
 
 import lombok.extern.slf4j.Slf4j;
-import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.Client;
 import zone.gryphon.screech.ResponseDecoder;
-import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 @Slf4j
 public class ClientCallbackImpl implements Client.ClientCallback {
 
-    private final Callback<Response<?>> callback;
+    private final Consumer<Throwable> onError;
 
-    private final BiFunction<ResponseHeaders, Callback<Response<?>>, ResponseDecoder> factory;
-
-    private final Executor executor;
+    private final Function<ResponseHeaders, ResponseDecoder> factory;
 
     private volatile boolean terminalOperationCalled = false;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    private volatile Optional<ResponseDecoder> consumer = Optional.empty();
+    private volatile Optional<ResponseDecoder> maybeResponseDecoder = Optional.empty();
 
-    public ClientCallbackImpl(Callback<Response<?>> callback, BiFunction<ResponseHeaders, Callback<Response<?>>, ResponseDecoder> factory, Executor executor) {
-        this.callback = callback;
+    public ClientCallbackImpl(Consumer<Throwable> onError, Function<ResponseHeaders, ResponseDecoder> factory) {
+        this.onError = onError;
         this.factory = factory;
-        this.executor = executor;
     }
 
     @Override
     public Client.ContentCallback headers(ResponseHeaders responseHeaders) {
-        consumer = Optional.ofNullable(factory.apply(responseHeaders, new Callback<Response<?>>() {
-            @Override
-            public void onSuccess(Response<?> result) {
-                runIfNoTerminalOperationCalled(true, true, () -> callback.onSuccess(result));
-            }
+        maybeResponseDecoder = Optional.ofNullable(factory.apply(responseHeaders));
 
-            @Override
-            public void onFailure(Throwable e) {
-                runIfNoTerminalOperationCalled(true, true, () -> callback.onFailure(e));
-            }
-        }));
-
-        return content -> runIfNoTerminalOperationCalled(false, false, () -> consumer.ifPresent(c -> c.content(content)));
+        return content -> runIfNoTerminalOperationCalled(false, () -> {
+            maybeResponseDecoder.ifPresent(c -> c.content(content));
+        });
     }
 
     @Override
     public void abort(Throwable t) {
-        runIfNoTerminalOperationCalled(true, true, () -> {
+        runIfNoTerminalOperationCalled(true, () -> {
 
             try {
-                consumer.ifPresent(ResponseDecoder::abort);
+                maybeResponseDecoder.ifPresent(ResponseDecoder::abort);
             } catch (Throwable ignore) {
                 // ignore
             }
 
-            callback.onFailure(t);
-
+            onError.accept(t);
         });
     }
 
     @Override
     public void complete() {
-        runIfNoTerminalOperationCalled(false, false, () -> consumer.ifPresent(ResponseDecoder::complete));
+        runIfNoTerminalOperationCalled(true, () -> maybeResponseDecoder.ifPresent(ResponseDecoder::complete));
     }
 
-    private void runIfNoTerminalOperationCalled(boolean markAsTerminalOperationComplete, boolean async, Runnable runnable) {
+    private void runIfNoTerminalOperationCalled(boolean markAsTerminalOperationComplete, Runnable runnable) {
 
         if (terminalOperationCalled) {
             return;
         }
 
-        try {
-            if (async) {
-                executor.execute(runnable);
-            } else {
-                runnable.run();
-            }
-        } finally {
-            if (markAsTerminalOperationComplete) {
-                terminalOperationCalled = true;
-            }
+        if (markAsTerminalOperationComplete) {
+            terminalOperationCalled = true;
         }
 
+        runnable.run();
     }
 }

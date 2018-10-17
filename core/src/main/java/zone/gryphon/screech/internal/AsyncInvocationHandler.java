@@ -62,7 +62,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -73,7 +72,42 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AsyncInvocationHandler implements InvocationHandler {
 
-    private static abstract class TransformingCallback<T, R> implements Callback<T> {
+    static class ThreadingCallback<T> implements Callback<T> {
+
+        private final Executor service;
+
+        private final Callback<T> proxy;
+
+        private final Thread invokingThread;
+
+        ThreadingCallback(Executor service, Callback<T> proxy) {
+            this.service = service;
+            this.proxy = proxy;
+            this.invokingThread = Thread.currentThread();
+        }
+
+        @Override
+        public void onSuccess(T result) {
+
+            if (Thread.currentThread().equals(invokingThread)) {
+                proxy.onSuccess(result);
+            } else {
+                service.execute(() -> proxy.onSuccess(result));
+            }
+        }
+
+        @Override
+        public void onFailure(Throwable e) {
+            if (Thread.currentThread().equals(invokingThread)) {
+                proxy.onFailure(e);
+            } else {
+                service.execute(() -> proxy.onFailure(e));
+            }
+        }
+    }
+
+
+    static abstract class TransformingCallback<T, R> implements Callback<T> {
 
         private final Callback<R> proxy;
 
@@ -94,7 +128,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
         protected abstract R convert(T entity);
     }
 
-    private static class ConditionallyProxyingCallabck<T> implements Callback<T> {
+    static class ConditionallyProxyingCallabck<T> implements Callback<T> {
 
         // set to the name of the first method that was called
         private final AtomicReference<String> terminalMethodName = new AtomicReference<>();
@@ -325,7 +359,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private void invoke(CompletableFuture<Object> future, Object[] args) {
         try {
-            setUpInterceptors(0, buildRequest(args), wrap(new Callback<Response<?>>() {
+            setUpInterceptors(0, buildRequest(args), ensureInvokedOnlyOnce(new Callback<Response<?>>() {
                 @Override
                 public void onSuccess(Response<?> result) {
                     future.complete(result == null ? null : result.getEntity());
@@ -614,7 +648,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private void setUpInterceptors(int index, Request<?> request, Callback<Response<?>> callback, Consumer<Throwable> errorHandler) {
 
-        Callback<Response<?>> errorHandlingCallback = new Callback<Response<?>>() {
+        Callback<Response<?>> errorHandlingCallback = new ThreadingCallback<>(responseExecutor, new Callback<Response<?>>() {
             @Override
             public void onSuccess(Response<?> result) {
                 try {
@@ -633,16 +667,25 @@ public class AsyncInvocationHandler implements InvocationHandler {
                     errorHandler.accept(e);
                 }
             }
-        };
+        });
 
         if (index >= requestInterceptors.size()) {
             performClientCall(request, errorHandlingCallback);
         } else {
             RequestInterceptor requestInterceptor = requestInterceptors.get(index);
 
+            Thread currentThread = Thread.currentThread();
+
             //noinspection CodeBlock2Expr
             BiConsumer<Request<?>, Callback<Response<Object>>> interceptorCallback = (modifiedRequest, responseCallback) -> {
-                setUpInterceptors(index + 1, modifiedRequest, wrapResponseCallback(responseCallback), errorHandlingCallback::onFailure);
+                Runnable r = () -> setUpInterceptors(index + 1, modifiedRequest, wrapResponseCallback(responseCallback), errorHandlingCallback::onFailure);
+
+                if (!Thread.currentThread().equals(currentThread)) {
+                    outboundExecutor.execute(r);
+                } else {
+                    r.run();
+                }
+
             };
 
             Util.runDangerousCode(errorHandlingCallback, () -> requestInterceptor.intercept(request, interceptorCallback, errorHandlingCallback));
@@ -650,33 +693,33 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     }
 
-    private void performClientCall(Request request, Callback<Response<?>> handler) {
+    private void performClientCall(Request request, Callback<Response<?>> callback) {
         if (request.getEntity() != null) {
 
-            final Callback<ByteBuffer> byteBufferCallback = new Callback<ByteBuffer>() {
+            final Callback<ByteBuffer> byteBufferCallback = new ThreadingCallback<>(outboundExecutor, new Callback<ByteBuffer>() {
 
                 @Override
                 public void onSuccess(ByteBuffer result) {
-                    doRequest(result, request, handler);
+                    doRequest(result, request, callback);
                 }
 
                 @Override
                 public void onFailure(Throwable e) {
-                    handler.onFailure(e);
+                    callback.onFailure(e);
                 }
 
-            };
+            });
 
-            Util.runDangerousCode(handler, () -> encoder.encode(request.getEntity(), byteBufferCallback));
+            Util.runDangerousCode(callback, () -> encoder.encode(request.getEntity(), byteBufferCallback));
         } else {
-            doRequest(null, request, handler);
+            doRequest(null, request, callback);
         }
     }
 
     private void doRequest(ByteBuffer buffer, Request request, Callback<Response<?>> callback) {
         SerializedRequest serializedRequest = convertRequestIntoSerializedRequest(buffer, request);
 
-        Client.ClientCallback clientCallback = new ClientCallbackImpl(callback, this::createDecoder, responseExecutor);
+        Client.ClientCallback clientCallback = new ClientCallbackImpl(callback::onFailure, headers -> createDecoder(headers, callback));
 
         Util.runDangerousCode(callback, () -> client.request(serializedRequest, clientCallback));
     }
@@ -703,7 +746,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             }
         };
 
-        return Util.runDangerousCode(callback, () -> errorDecoder.create(clientResponse, effectiveReturnType, wrap(responseDecoderCallback)));
+        return Util.runDangerousCode(callback, () -> errorDecoder.create(clientResponse, effectiveReturnType, ensureInvokedOnlyOnce(responseDecoderCallback)));
     }
 
     private ResponseDecoder createSuccessDecoder(ResponseHeaders clientResponse, Callback<Response<?>> callback) {
@@ -717,22 +760,26 @@ public class AsyncInvocationHandler implements InvocationHandler {
             }
         };
 
-        return Util.runDangerousCode(callback, () -> responseDecoder.create(clientResponse, effectiveReturnType, wrap(responseDecoderCallback)));
+        return Util.runDangerousCode(callback, () -> responseDecoder.create(clientResponse, effectiveReturnType, ensureInvokedOnlyOnce(responseDecoderCallback)));
     }
 
-    private <T> Callback<T> wrap(Callback<T> callback) {
+
+
+
+
+    private <T> Callback<T> ensureInvokedOnlyOnce(Callback<T> callback) {
         return new ConditionallyProxyingCallabck<>(callback, true);
     }
 
     private Callback<Response<?>> wrapResponseCallback(Callback<Response<Object>> responseCallback) {
-        return wrap(new TransformingCallback<Response<?>, Response<Object>>(responseCallback) {
+        return new ThreadingCallback<>(responseExecutor, ensureInvokedOnlyOnce(new TransformingCallback<Response<?>, Response<Object>>(responseCallback) {
 
             @Override
             protected Response<Object> convert(Response<?> entity) {
                 // noinspection unchecked
                 return (Response<Object>) entity;
             }
-        });
+        }));
     }
 
 }

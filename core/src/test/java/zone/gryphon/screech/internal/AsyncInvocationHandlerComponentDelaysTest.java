@@ -107,6 +107,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
         @Override
         public void request(SerializedRequest request, ClientCallback callback) {
+            ensureNotRunningInTestThreadPool();
+
             String body = new String(request.getRequestBody().getBody().array(), UTF_8);
 
             ResponseHeaders headers = ResponseHeaders.builder()
@@ -126,6 +128,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
         @Override
         public <T> void encode(T entity, Callback<ByteBuffer> callback) {
+
+            ensureNotRunningInTestThreadPool();
 
             if (!String.class.equals(entity.getClass())) {
                 throw new IllegalArgumentException("Only works with strings! got " + entity.getClass().getName());
@@ -234,12 +238,16 @@ public class AsyncInvocationHandlerComponentDelaysTest {
         }
     }
 
+    private static void ensureNotRunningInTestThreadPool() {
+        log.info("Running in thread \"{}\"", Thread.currentThread().getName());
+
+        assertThat(Thread.currentThread().getName()).doesNotContain(THREADPOOL_NAME_PREFIX);
+    }
+
     private static <T> CompletableFuture<T> ensureNotCompletedUsingTestThreadPool(CompletableFuture<T> future) {
         return future.handle((result, throwable) -> {
 
-            log.info("Future completed in thread \"{}\"", Thread.currentThread().getName());
-
-            assertThat(Thread.currentThread().getName()).doesNotContain(THREADPOOL_NAME_PREFIX);
+            ensureNotRunningInTestThreadPool();
 
             if (throwable instanceof RuntimeException) {
                 throw (RuntimeException) throwable;
@@ -337,6 +345,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
                     @Override
                     public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             responseCallback.onSuccess(Response.builder().entity(String.format("response: %s", id)).build());
                         }, DELAY, MILLISECONDS);
@@ -350,16 +360,19 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
                     @Override
                     public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.accept(request, new Callback<Response<Y>>() {
                                 @Override
                                 public void onSuccess(Response<Y> result) {
+                                    ensureNotRunningInTestThreadPool();
                                     responseCallback.onSuccess(result);
                                 }
 
                                 @Override
                                 public void onFailure(Throwable e) {
-
+                                    ensureNotRunningInTestThreadPool();
                                 }
                             });
                         }, DELAY, MILLISECONDS);
@@ -373,6 +386,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
                     @Override
                     public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.accept(request, new Callback<Response<Y>>() {
                                 @Override
@@ -384,7 +399,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                                 @Override
                                 public void onFailure(Throwable e) {
-
+                                    log.error("onFailure() called when it should not have been", e);
+                                    ensureNotRunningInTestThreadPool();
                                 }
                             });
                         }, DELAY, MILLISECONDS);
@@ -398,6 +414,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
                     @Override
                     public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             responseCallback.onFailure(new TestException(id));
                         }, DELAY, MILLISECONDS);
@@ -411,9 +429,13 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
                     @Override
                     public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        ensureNotRunningInTestThreadPool();
+
                         callback.accept(request, new Callback<Response<Y>>() {
                             @Override
                             public void onSuccess(Response<Y> result) {
+                                ensureNotRunningInTestThreadPool();
+
                                 THREADPOOL.schedule(() -> {
                                     responseCallback.onSuccess(Response.builder().entity(String.format("response: %s", id)).build());
                                 }, DELAY, MILLISECONDS);
@@ -421,7 +443,7 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                             @Override
                             public void onFailure(Throwable e) {
-
+                                ensureNotRunningInTestThreadPool();
                             }
                         });
                     }
@@ -434,9 +456,13 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestInterceptors(Collections.singletonList(new RequestInterceptor() {
                     @Override
                     public <X, Y> void intercept(Request<X> request, BiConsumer<Request<?>, Callback<Response<Y>>> callback, Callback<Response<?>> responseCallback) {
+                        ensureNotRunningInTestThreadPool();
+
                         callback.accept(request, new Callback<Response<Y>>() {
                             @Override
                             public void onSuccess(Response<Y> result) {
+                                ensureNotRunningInTestThreadPool();
+
                                 THREADPOOL.schedule(() -> {
                                     responseCallback.onFailure(new TestException(id));
                                 }, DELAY, MILLISECONDS);
@@ -444,7 +470,7 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                             @Override
                             public void onFailure(Throwable e) {
-
+                                ensureNotRunningInTestThreadPool();
                             }
                         });
                     }
@@ -458,6 +484,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestEncoder(new RequestEncoder() {
                     @Override
                     public <T> void encode(T entity, Callback<ByteBuffer> callback) {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.onSuccess(ByteBuffer.wrap(String.valueOf(entity).getBytes(UTF_8)));
                         }, DELAY, MILLISECONDS);
@@ -471,6 +499,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
                 .requestEncoder(new RequestEncoder() {
                     @Override
                     public <T> void encode(T entity, Callback<ByteBuffer> callback) {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.onFailure(new TestException(id));
                         }, DELAY, MILLISECONDS);
@@ -482,6 +512,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
     public void testIfClientIsAsyncAndSucceeds() {
         testHappyPathHelper(id -> TestApiBuilder.builder()
                 .client((request, callback) -> {
+                    ensureNotRunningInTestThreadPool();
+
                     final CompletableFuture<Client.ContentCallback> future = new CompletableFuture<>();
 
                     byte[] bytes = String.format("response: %s", id).getBytes(UTF_8);
@@ -508,6 +540,8 @@ public class AsyncInvocationHandlerComponentDelaysTest {
     public void testIfClientIsAsyncAndFails() {
         testFailurePathHelper(id -> TestApiBuilder.builder()
                 .client((request, callback) -> {
+                    ensureNotRunningInTestThreadPool();
+
                     final CompletableFuture<Client.ContentCallback> future = new CompletableFuture<>();
 
                     byte[] bytes = String.format("response: %s", id).getBytes(UTF_8);
@@ -539,11 +573,14 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                     @Override
                     public void content(ByteBuffer content) {
+                        ensureNotRunningInTestThreadPool();
                         expandableByteBuffer.append(content);
                     }
 
                     @Override
                     public void complete() {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.onSuccess(AsyncInvocationHandlerComponentDelaysTest.toString(expandableByteBuffer.createInputStream()));
                         }, DELAY, MILLISECONDS);
@@ -560,11 +597,14 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                     @Override
                     public void content(ByteBuffer content) {
+                        ensureNotRunningInTestThreadPool();
                         expandableByteBuffer.append(content);
                     }
 
                     @Override
                     public void complete() {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.onFailure(new TestException(id));
                         }, DELAY, MILLISECONDS);
@@ -582,11 +622,14 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                     @Override
                     public void content(ByteBuffer content) {
+                        ensureNotRunningInTestThreadPool();
                         expandableByteBuffer.append(content);
                     }
 
                     @Override
                     public void complete() {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.onSuccess(AsyncInvocationHandlerComponentDelaysTest.toString(expandableByteBuffer.createInputStream()));
                         }, DELAY, MILLISECONDS);
@@ -604,11 +647,14 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                     @Override
                     public void content(ByteBuffer content) {
+                        ensureNotRunningInTestThreadPool();
                         expandableByteBuffer.append(content);
                     }
 
                     @Override
                     public void complete() {
+                        ensureNotRunningInTestThreadPool();
+
                         THREADPOOL.schedule(() -> {
                             callback.onFailure(new TestException(id));
                         }, DELAY, MILLISECONDS);
