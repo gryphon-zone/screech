@@ -35,12 +35,16 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Slf4j
 @ToString
 public class ScreechBuilder {
 
     private final int numCores = Runtime.getRuntime().availableProcessors();
+
+    private final Supplier<Executor> executorSupplier = () -> new ThreadPoolExecutor(numCores, numCores,
+            Long.MAX_VALUE, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), new ScreechThreadFactory("ScreechClient"));
 
     private RequestEncoder requestEncoder = new RequestEncoder.StringRequestEncoder();
 
@@ -50,10 +54,9 @@ public class ScreechBuilder {
 
     private ResponseDecoderFactory errorDecoder = new ResponseDecoderFactory.ErrorResponseDecoderFactory();
 
-    private Executor outboundExecutor = new ThreadPoolExecutor(numCores, numCores,
-            Long.MAX_VALUE, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), new ScreechThreadFactory("ScreechClient"));
+    private Executor requestExecutor = null;
 
-    private Executor responseExecutor = outboundExecutor;
+    private Executor responseExecutor = null;
 
     private Client client;
 
@@ -86,12 +89,34 @@ public class ScreechBuilder {
         return this;
     }
 
+    public ScreechBuilder requestExecutor(@NonNull Executor executor) {
+        this.requestExecutor = executor;
+        return this;
+    }
+
+    public ScreechBuilder responseExecutor(@NonNull Executor executor) {
+        this.responseExecutor = executor;
+        return this;
+    }
+
+    private Executor getOrDefaultRequestExecutor() {
+        return requestExecutor == null ? executorSupplier.get() : requestExecutor;
+    }
+
+    private Executor getOrDefaultResponseExecutor() {
+        return responseExecutor == null ? executorSupplier.get() : responseExecutor;
+    }
+
     public <T> T build(Class<T> clazz, Target target) {
 
         Map<Method, InvocationHandler> map = new HashMap<>();
 
+        Executor requestExecutor = getOrDefaultRequestExecutor();
+
+        Executor responseExecutor = getOrDefaultResponseExecutor();
+
         for (Method method : clazz.getMethods()) {
-            map.put(method, AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, outboundExecutor, responseExecutor));
+            map.put(method, AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, requestExecutor, responseExecutor));
         }
 
         InvocationHandler handler = (proxy, method, args) -> map.get(method).invoke(proxy, method, args);

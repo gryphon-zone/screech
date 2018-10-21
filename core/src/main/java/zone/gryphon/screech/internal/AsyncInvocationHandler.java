@@ -185,9 +185,9 @@ public class AsyncInvocationHandler implements InvocationHandler {
             ResponseDecoderFactory errorDecoder,
             Client client,
             Target target,
-            Executor outboundExecutor,
+            Executor requestExecutor,
             Executor responseExecutor) {
-        return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, outboundExecutor, responseExecutor);
+        return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, requestExecutor, responseExecutor);
     }
 
     @Getter(AccessLevel.PROTECTED)
@@ -231,7 +231,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private final Target target;
 
-    private final Executor outboundExecutor;
+    private final Executor requestExecutor;
 
     private final Executor responseExecutor;
 
@@ -243,7 +243,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
             @NonNull ResponseDecoderFactory errorDecoder,
             @NonNull Client client,
             @NonNull Target target,
-            @NonNull Executor outboundExecutor,
+            @NonNull Executor requestExecutor,
             @NonNull Executor responseExecutor) {
 
         this.target = target;
@@ -258,7 +258,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         this.client = client;
 
-        this.outboundExecutor = outboundExecutor;
+        this.requestExecutor = requestExecutor;
 
         this.responseExecutor = responseExecutor;
 
@@ -339,7 +339,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
         if (isAsyncResponseType) {
 
             try {
-                outboundExecutor.execute(() -> invoke(response, args));
+                requestExecutor.execute(() -> invoke(response, args));
             } catch (Throwable t) {
                 response.completeExceptionally(ScreechException.handle(t));
             }
@@ -681,7 +681,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
                 Runnable r = () -> setUpInterceptors(index + 1, modifiedRequest, wrapResponseCallback(responseCallback), errorHandlingCallback::onFailure);
 
                 if (!Thread.currentThread().equals(currentThread)) {
-                    outboundExecutor.execute(r);
+                    requestExecutor.execute(r);
                 } else {
                     r.run();
                 }
@@ -696,7 +696,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
     private void performClientCall(Request request, Callback<Response<?>> callback) {
         if (request.getEntity() != null) {
 
-            final Callback<ByteBuffer> byteBufferCallback = new ThreadingCallback<>(outboundExecutor, new Callback<ByteBuffer>() {
+            final Callback<ByteBuffer> byteBufferCallback = new ThreadingCallback<>(requestExecutor, new Callback<ByteBuffer>() {
 
                 @Override
                 public void onSuccess(ByteBuffer result) {
