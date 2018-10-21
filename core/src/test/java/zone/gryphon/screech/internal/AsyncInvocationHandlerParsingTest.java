@@ -33,6 +33,8 @@ import zone.gryphon.screech.model.HttpParam;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
@@ -55,8 +57,10 @@ public class AsyncInvocationHandlerParsingTest {
 
     private Target target = mock(Target.class);
 
+    private final Executor executor = Executors.newCachedThreadPool();
+
     private AsyncInvocationHandler create(Method method) {
-        return AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, dcoderFactory, errorDecoderFactory, client, target);
+        return AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, dcoderFactory, errorDecoderFactory, client, target, executor, executor);
     }
 
     public interface NoAnnotation {
