@@ -30,7 +30,7 @@
     <artifactId>screech-test-utilities</artifactId>
 
     <properties>
-        <pedantic.testOnlyDeps />
+        <pedantic.testOnlyDeps/>
     </properties>
 
     <dependencyManagement>

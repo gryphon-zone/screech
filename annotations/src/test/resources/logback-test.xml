@@ -29,7 +29,7 @@
         </encoder>
     </appender>
 
-    <logger name="zone.gryphon.screech" level="DEBUG" />
+    <logger name="zone.gryphon.screech" level="DEBUG"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT"/>

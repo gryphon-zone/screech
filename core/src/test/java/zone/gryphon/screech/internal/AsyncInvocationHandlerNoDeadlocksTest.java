@@ -73,6 +73,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
             super("This is a mock exception for a unit test. id=" + id);
         }
     }
+
     private static class AnotherTestException extends RuntimeException {
         public AnotherTestException(@NonNull String id) {
             super("This is a mock exception for a unit test. id=" + id);

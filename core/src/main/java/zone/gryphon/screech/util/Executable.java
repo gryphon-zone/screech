@@ -22,6 +22,7 @@ public interface Executable {
 
     /**
      * Execute the code
+     *
      * @throws Throwable If something went wrong
      */
     void execute() throws Throwable;

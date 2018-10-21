@@ -764,9 +764,6 @@ public class AsyncInvocationHandler implements InvocationHandler {
     }
 
 
-
-
-
     private <T> Callback<T> ensureInvokedOnlyOnce(Callback<T> callback) {
         return new ConditionallyProxyingCallabck<>(callback, true);
     }

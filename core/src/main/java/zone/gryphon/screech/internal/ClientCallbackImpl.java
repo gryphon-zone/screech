@@ -23,7 +23,6 @@ import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.ResponseHeaders;
 
 import java.util.Optional;
-import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
