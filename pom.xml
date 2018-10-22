@@ -21,7 +21,7 @@
 
     <groupId>zone.gryphon</groupId>
     <artifactId>screech</artifactId>
-    <version>0.1</version>
+    <version>0.2-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
@@ -52,7 +52,7 @@
         <connection>scm:git:git@github.com:gryphon-zone/screech.git</connection>
         <developerConnection>scm:git:git@github.com:gryphon-zone/screech.git</developerConnection>
         <url>https://github.com/gryphon-zone/screech/tree/master</url>
-        <tag>screech-0.1</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <distributionManagement>

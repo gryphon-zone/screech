@@ -22,7 +22,7 @@
     <parent>
         <groupId>zone.gryphon</groupId>
         <artifactId>screech</artifactId>
-        <version>0.1</version>
+        <version>0.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>screech-bom</artifactId>
@@ -33,37 +33,37 @@
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-annotations</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-async-httpclient2</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-core</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-gson2</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-jackson2</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-jetty</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-test-utilities</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -22,7 +22,7 @@
     <parent>
         <groupId>zone.gryphon</groupId>
         <artifactId>screech</artifactId>
-        <version>0.1</version>
+        <version>0.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>screech-build-bom</artifactId>
@@ -40,7 +40,7 @@
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>screech-bom</artifactId>
-                <version>0.1</version>
+                <version>0.2-SNAPSHOT</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
