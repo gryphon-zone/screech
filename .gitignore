@@ -3,3 +3,4 @@ tmp.txt
 *.iml
 **dependency-reduced-pom.xml
 *.idea
+*.releaseBackup
