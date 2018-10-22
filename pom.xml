@@ -51,9 +51,10 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/gryphon-zone/screech.git</connection>
-        <developerConnection>scm:git:ssh://github.com:gryphon-zone/screech.git</developerConnection>
-        <url>http://github.com/gryphon-zone/screech/tree/master</url>
+        <connection>scm:git:https://github.com/gryphon-zone/screech.git</connection>
+        <developerConnection>scm:git:https://github.com/gryphon-zone/screech.git</developerConnection>
+        <url>https://github.com/gryphon-zone/screech/tree/master</url>
+        <tag>HEAD</tag>
     </scm>
 
     <distributionManagement>
