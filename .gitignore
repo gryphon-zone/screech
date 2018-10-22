@@ -4,3 +4,4 @@ tmp.txt
 **dependency-reduced-pom.xml
 *.idea
 *.releaseBackup
+release.properties
