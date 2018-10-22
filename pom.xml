@@ -26,6 +26,47 @@
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <name>${project.groupId}:${project.artifactId}</name>
+    <description>Highly pluggable async HTTP abstraction library</description>
+    <url>https://github.com/gryphon-zone/screech</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>galen</id>
+            <name>Galen</name>
+            <email>tyrol@gryphon.zone</email>
+            <timezone>-6</timezone>
+            <roles>
+                <role>developer</role>
+            </roles>
+            <organizationUrl>https://github.com/gryphon-zone/</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/gryphon-zone/screech.git</connection>
+        <developerConnection>scm:git:ssh://github.com:gryphon-zone/screech.git</developerConnection>
+        <url>http://github.com/gryphon-zone/screech/tree/master</url>
+    </scm>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
+
     <modules>
         <module>annotations</module>
         <module>asynchttpclient2</module>
