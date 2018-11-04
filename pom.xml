@@ -75,6 +75,7 @@
         <module>gson2</module>
         <module>integration</module>
         <module>jackson2</module>
+        <module>jaxb2</module>
         <module>jetty</module>
         <module>test-utilities</module>
     </modules>

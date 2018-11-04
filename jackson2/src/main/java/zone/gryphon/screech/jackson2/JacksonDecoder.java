@@ -19,17 +19,16 @@ package zone.gryphon.screech.jackson2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import zone.gryphon.screech.Callback;
-import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.model.ResponseHeaders;
+import zone.gryphon.screech.util.BufferingResponseDecoder;
 import zone.gryphon.screech.util.ExpandableByteBuffer;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.nio.ByteBuffer;
 import java.util.Objects;
 
-public class JacksonDecoder implements ResponseDecoder {
+public class JacksonDecoder extends BufferingResponseDecoder {
 
     private final ObjectMapper objectMapper;
 
@@ -37,43 +36,21 @@ public class JacksonDecoder implements ResponseDecoder {
 
     private final Callback<Object> callback;
 
-    private final ExpandableByteBuffer buffer;
-
     JacksonDecoder(ObjectMapper objectMapper, ResponseHeaders responseHeaders, Type type, Callback<Object> callback) {
+        super(responseHeaders);
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.type = Objects.requireNonNull(type, "type");
         this.callback = Objects.requireNonNull(callback, "callback");
-
-        this.buffer = Objects.requireNonNull(responseHeaders, "responseHeaders")
-                .getContentLength()
-                .map(ExpandableByteBuffer::create)
-                .orElseGet(ExpandableByteBuffer::createEmpty);
     }
 
     @Override
-    public void content(ByteBuffer content) {
-
-        if (content == null || content.remaining() == 0) {
-            return;
-        }
-
-        buffer.append(content);
-    }
-
-    @Override
-    public void complete() {
-
+    protected void complete(ExpandableByteBuffer buffer) {
         // since backing buffer for stream is in-memory, it should never block, and therefore it should be safe to call
         try (InputStream inputStream = new BufferedInputStream(buffer.createInputStream())) {
             callback.onSuccess(objectMapper.readValue(inputStream, objectMapper.constructType(type)));
         } catch (Throwable t) {
             callback.onFailure(t);
         }
-    }
-
-    @Override
-    public void abort() {
-        this.buffer.clear();
     }
 
     @Override

@@ -35,7 +35,7 @@ public class ScreechException extends RuntimeException {
 
     protected ScreechException(String message, Throwable t) {
         super(message, t);
-        this.status = 0;
+        this.status = -1;
     }
 
     public static ScreechException from(@NonNull ResponseHeaders response) {
