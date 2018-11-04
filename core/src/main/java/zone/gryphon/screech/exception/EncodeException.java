@@ -22,7 +22,7 @@ import lombok.Getter;
 @Getter
 public class EncodeException extends ScreechException {
 
-    protected EncodeException(String message) {
+    public EncodeException(String message) {
         super(message, -1);
     }
 
