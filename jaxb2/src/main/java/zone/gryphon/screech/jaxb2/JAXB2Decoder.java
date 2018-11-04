@@ -17,6 +17,7 @@
 
 package zone.gryphon.screech.jaxb2;
 
+import lombok.NonNull;
 import org.xml.sax.InputSource;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.exception.DecodeException;
@@ -40,17 +41,22 @@ public class JAXB2Decoder extends BufferingResponseDecoder {
 
     private final SAXParserFactory saxParserFactory;
 
-    public JAXB2Decoder(JAXBContextFactory jaxbContextFactory, SAXParserFactory saxParserFactory, ResponseHeaders responseHeaders, Type type, Callback<Object> callback) {
+    public JAXB2Decoder(
+            @NonNull JAXBContextFactory jaxbContextFactory,
+            @NonNull SAXParserFactory saxParserFactory,
+            @NonNull Type type,
+            @NonNull Callback<Object> callback,
+            ResponseHeaders responseHeaders) {
         super(responseHeaders);
-        this.saxParserFactory = saxParserFactory;
 
         if (!(type instanceof Class)) {
             throw new DecodeException(String.format("Unable to build JAXB context for %s, only raw Class objects are supported", type));
         }
 
+        this.saxParserFactory = saxParserFactory;
+        this.callback = callback;
         this.clazz = (Class) type;
         this.unmarshaller = jaxbContextFactory.unmarshallerFor(this.clazz);
-        this.callback = callback;
     }
 
     @Override

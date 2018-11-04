@@ -64,7 +64,7 @@ public class JAXB2DecoderFactory implements ResponseDecoderFactory {
 
     @Override
     public ResponseDecoder create(ResponseHeaders response, Type type, Callback<Object> callback) {
-        return new JAXB2Decoder(jaxbContextFactory, saxParserFactory, response, type, callback);
+        return new JAXB2Decoder(jaxbContextFactory, saxParserFactory, type, callback, response);
     }
 
     @Override
