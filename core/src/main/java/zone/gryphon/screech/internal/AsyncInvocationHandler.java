@@ -20,7 +20,6 @@ package zone.gryphon.screech.internal;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.Client;
 import zone.gryphon.screech.Header;
@@ -69,7 +68,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-@Slf4j
 public class AsyncInvocationHandler implements InvocationHandler {
 
     static class ThreadingCallback<T> implements Callback<T> {
