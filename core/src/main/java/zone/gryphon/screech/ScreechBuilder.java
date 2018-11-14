@@ -19,7 +19,6 @@ package zone.gryphon.screech;
 
 import lombok.NonNull;
 import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
 import zone.gryphon.screech.internal.AsyncInvocationHandler;
 import zone.gryphon.screech.internal.ScreechThreadFactory;
 
@@ -37,7 +36,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-@Slf4j
 @ToString
 public class ScreechBuilder {
 
