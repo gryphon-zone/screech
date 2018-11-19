@@ -18,6 +18,7 @@
 package zone.gryphon.screech.internal;
 
 import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
 import zone.gryphon.screech.Callback;
@@ -68,6 +69,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+@EqualsAndHashCode
 public class AsyncInvocationHandler implements InvocationHandler {
 
     static class ThreadingCallback<T> implements Callback<T> {

@@ -96,4 +96,29 @@ public class ScreechBuilderTest {
         assertThat(test.asyncFuturePOST("bar").get()).isEqualTo("bar");
         assertThat(test.asyncCompletableFuturePOST("baz").get()).isEqualTo("baz");
     }
+
+    @Test
+    @SuppressWarnings({"ConstantConditions", "EqualsWithItself"})
+    public void testStandardObjectMethodsOnBuiltClient() {
+        TestInterface test = new ScreechBuilder(new MockClient())
+                .build(TestInterface.class, new HardCodedTarget("http://localhost"));
+
+        TestInterface test2 = new ScreechBuilder(new MockClient())
+                .build(TestInterface.class, new HardCodedTarget("http://localhost:8080"));
+
+        log.info("toString: {}", test.toString());
+        log.info("hasCode[test]: {}", test.hashCode());
+        log.info("hasCode[test2]: {}", test2.hashCode());
+
+        assertThat(test.hashCode()).isNotEqualTo(0);
+
+        assertThat(test.toString()).isNotNull();
+
+        assertThat(test.equals(null)).isFalse();
+        assertThat(test.equals(new Object())).isFalse();
+
+        assertThat(test.equals(test)).isTrue();
+
+        assertThat(test.equals(test2)).isFalse();
+    }
 }

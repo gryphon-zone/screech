@@ -20,6 +20,7 @@ package zone.gryphon.screech;
 import lombok.NonNull;
 import lombok.ToString;
 import zone.gryphon.screech.internal.AsyncInvocationHandler;
+import zone.gryphon.screech.internal.ReflectiveScreech;
 import zone.gryphon.screech.internal.ScreechThreadFactory;
 
 import java.lang.reflect.InvocationHandler;
@@ -106,39 +107,14 @@ public class ScreechBuilder {
     }
 
     public <T> T build(Class<T> clazz, Target target) {
-
-        Map<Method, InvocationHandler> map = new HashMap<>();
-
         Executor requestExecutor = getOrDefaultRequestExecutor();
 
         Executor responseExecutor = getOrDefaultResponseExecutor();
 
-        for (Method method : clazz.getMethods()) {
-            map.put(method, AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, requestExecutor, responseExecutor));
-        }
-
-        InvocationHandler handler = (proxy, method, args) -> map.get(method).invoke(proxy, method, args);
+        ReflectiveScreech reflectiveScreech = new ReflectiveScreech(requestEncoder, requestInterceptors, responseDecoder, errorDecoder, requestExecutor, responseExecutor, client, clazz, target);
 
         //noinspection unchecked
-        T proxy = (T) Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, handler);
-
-        try {
-            final String toStringValue = String.format("%s{%s}", clazz.getSimpleName(), target.getClass().getSimpleName());
-            Method toString = Object.class.getDeclaredMethod("toString");
-            map.put(toString, (x, y, z) -> toStringValue);
-
-            final int hashCodeValue = Objects.hash(map);
-            Method hashCode = Object.class.getDeclaredMethod("hashCode");
-            map.put(hashCode, (x, y, z) -> hashCodeValue);
-
-            Method equals = Object.class.getDeclaredMethod("equals", Object.class);
-            map.put(equals, (x, y, z) -> z[0] == proxy);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to construct proxy", e);
-        }
-
-        return proxy;
+        return (T) Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, reflectiveScreech);
     }
 
 }
