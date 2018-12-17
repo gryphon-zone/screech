@@ -20,6 +20,7 @@ package zone.gryphon.screech.internal;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,6 +58,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -334,9 +336,20 @@ public class AsyncInvocationHandlerComponentDelaysTest {
     @Rule
     public final TestName testName = new TestName();
 
+    private final AtomicReference<Throwable> exceptionForWhenMethodCalledThatShouldNotHaveBeenCalled = new AtomicReference<>();
+
     @Before
     public void setUp() {
         log.info("Running test {}", testName.getMethodName());
+    }
+
+    @After
+    public void cleanup() {
+        Throwable maybeThrowable = exceptionForWhenMethodCalledThatShouldNotHaveBeenCalled.get();
+
+        if (maybeThrowable != null) {
+            throw new RuntimeException("Method which should not have been called was called", maybeThrowable);
+        }
     }
 
     @Test(timeout = 5000)
@@ -399,7 +412,7 @@ public class AsyncInvocationHandlerComponentDelaysTest {
 
                                 @Override
                                 public void onFailure(Throwable e) {
-                                    log.error("onFailure() called when it should not have been", e);
+                                    exceptionForWhenMethodCalledThatShouldNotHaveBeenCalled.set(new RuntimeException("onFailure() called when it should not have been", e));
                                     ensureNotRunningInTestThreadPool();
                                 }
                             });

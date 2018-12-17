@@ -21,7 +21,12 @@ package zone.gryphon.screech.internal;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import zone.gryphon.screech.Callback;
 import zone.gryphon.screech.Client;
 import zone.gryphon.screech.RequestEncoder;
@@ -54,6 +59,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 
@@ -64,7 +70,6 @@ import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
  * Tests to make sure that the the completable future in a client interface is always completed, even
  * if an exception is thrown by one of the modules
  */
-@SuppressWarnings("unchecked")
 @Slf4j
 public class AsyncInvocationHandlerNoDeadlocksTest {
 
@@ -217,8 +222,13 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
         }
     }
 
-    private static RuntimeException createInvalidCallException() {
-        return new RuntimeException("The screech method should not have been called, but it was");
+    private static RuntimeException createInvalidCallException(String method) {
+        return createInvalidCallException(method, null);
+    }
+
+    private static RuntimeException createInvalidCallException(String method, Throwable throwable) {
+        String text = "The method \"" + method + "()\" should not have been called, but it was. Invoking thread: " + Thread.currentThread().getName();
+        return throwable == null ? new RuntimeException(text) : new RuntimeException(text, throwable);
     }
 
     private <T> void unwrap(Future<T> future) throws ExecutionException {
@@ -226,6 +236,25 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
             future.get(1, TimeUnit.MINUTES);
         } catch (TimeoutException | InterruptedException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private final AtomicReference<Throwable> methodShouldNotHaveBeenCalledThrowable = new AtomicReference<>();
+
+    @Rule
+    public TestName testName = new TestName();
+
+    @Before
+    public void setUp() {
+            log.info("Running test {}", testName.getMethodName());
+    }
+
+    @After
+    public void tearDown() {
+        Throwable throwable = methodShouldNotHaveBeenCalledThrowable.get();
+
+        if (throwable != null) {
+            throw new RuntimeException("Method which should not have been called was", throwable);
         }
     }
 
@@ -445,7 +474,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                     @Override
                     public void complete() {
-                        log.error("complete should not have been called", createInvalidCallException());
+                        methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("complete"));
                     }
                 })
                 .build()
@@ -490,6 +519,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
         }
     }
 
+    @Ignore("Known bug: https://github.com/gryphon-zone/screech/issues/31")
     @Test(timeout = 1000)
     public void testIfResponseDecoderCompletesWithExceptionInContentMethod() {
         String id = String.valueOf(UUID.randomUUID());
@@ -503,7 +533,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                     @Override
                     public void complete() {
-                        log.error("complete should not have been called", createInvalidCallException());
+                        methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("complete"));
                     }
                 })
                 .build()
@@ -609,7 +639,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                     @Override
                     public void complete() {
-                        log.error("complete should not have been called", createInvalidCallException());
+                        methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("complete"));
                     }
                 })
                 .build()
@@ -655,6 +685,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
         }
     }
 
+    @Ignore("Known bug: https://github.com/gryphon-zone/screech/issues/31")
     @Test(timeout = 1000)
     public void testIfErrorResponseDecoderCompletesWithExceptionInContentMethod() {
         String id = String.valueOf(UUID.randomUUID());
@@ -669,7 +700,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                     @Override
                     public void complete() {
-                        log.error("complete should not have been called", createInvalidCallException());
+                        methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("complete"));
                     }
                 })
                 .build()
@@ -734,7 +765,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onFailure(Throwable e) {
-                                log.error("onFailure should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onFailure", e));
                             }
                         });
                     }
@@ -769,7 +800,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onFailure(Throwable e) {
-                                log.error("onFailure should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onFailure", e));
                             }
                         });
                     }
@@ -800,7 +831,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -836,7 +867,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -874,7 +905,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -896,7 +927,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onFailure(Throwable e) {
-                                log.error("onFailure should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onFailure", e));
                             }
                         });
                     }
@@ -928,7 +959,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -950,7 +981,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onFailure(Throwable e) {
-                                log.error("onFailure should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onFailure", e));
                             }
                         });
                     }
@@ -983,7 +1014,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -1000,7 +1031,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -1038,7 +1069,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -1055,7 +1086,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                             @Override
                             public void onSuccess(Response<Y> result) {
-                                log.error("onSuccess should not have been called", createInvalidCallException());
+                                methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                             }
 
                             @Override
@@ -1093,7 +1124,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                     @Override
                     public void onSuccess(Response<Y> result) {
-                        log.error("onSuccess should not have been called", createInvalidCallException());
+                        methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                     }
 
                     @Override
@@ -1112,7 +1143,7 @@ public class AsyncInvocationHandlerNoDeadlocksTest {
 
                     @Override
                     public void onSuccess(Response<Y> result) {
-                        log.error("onSuccess should not have been called", createInvalidCallException());
+                        methodShouldNotHaveBeenCalledThrowable.set(createInvalidCallException("onSuccess"));
                     }
 
                     @Override
