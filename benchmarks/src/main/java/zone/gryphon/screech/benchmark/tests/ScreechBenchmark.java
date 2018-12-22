@@ -43,70 +43,75 @@ public class ScreechBenchmark {
 
     @Benchmark
     public double generate_random_double(SimpleBenchmarkState state) {
-        // no-op to get a baseline for what runtimes look like
+        // simple method call to get baseline for runtimes
         return Math.random();
     }
 
     @Benchmark
-    public void GET_no_params(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.getMethodWithNoParams().get();
+    public Object run_empty_async_task(SimpleBenchmarkState state) throws Exception {
+        // simple async method call to get a baseline for runtimes
+        return state.service.submit(() -> null).get();
     }
 
     @Benchmark
-    public void GET_single_param(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.getMethodWithParam("foo").get();
+    public Object GET_no_params(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.getMethodWithNoParams().get();
     }
 
     @Benchmark
-    public void GET_multiple_params(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.getMethodWithMultipleParams("foo", "bar", "baz").get();
+    public Object GET_single_param(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.getMethodWithParam("foo").get();
     }
 
     @Benchmark
-    public void GET_single_header(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.getMethodWithSingleHeader("foo").get();
+    public Object GET_multiple_params(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.getMethodWithMultipleParams("foo", "bar", "baz").get();
     }
 
     @Benchmark
-    public void GET_multiple_headers(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.getMethodWithMultipleHeaders("foo", "bar", "baz").get();
+    public Object GET_single_header(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.getMethodWithSingleHeader("foo").get();
     }
 
     @Benchmark
-    public void GET_multiple_headers_multiple_params(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.getMethodWithMultipleHeadersAndMultipleParams("foo", "bar", "baz").get();
-    }
-
-
-
-    @Benchmark
-    public void POST_no_params(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.postMethodWithNoParams("body").get();
+    public Object GET_multiple_headers(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.getMethodWithMultipleHeaders("foo", "bar", "baz").get();
     }
 
     @Benchmark
-    public void POST_single_param(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.postMethodWithParam("foo", "body").get();
+    public Object GET_multiple_headers_multiple_params(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.getMethodWithMultipleHeadersAndMultipleParams("foo", "bar", "baz").get();
+    }
+
+
+    @Benchmark
+    public Object POST_no_params(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.postMethodWithNoParams("body").get();
     }
 
     @Benchmark
-    public void POST_multiple_params(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.postMethodWithMultipleParams("foo", "bar", "baz", "body").get();
+    public Object POST_single_param(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.postMethodWithParam("foo", "body").get();
     }
 
     @Benchmark
-    public void POST_single_header(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.postMethodWithSingleHeader("foo", "body").get();
+    public Object POST_multiple_params(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.postMethodWithMultipleParams("foo", "bar", "baz", "body").get();
     }
 
     @Benchmark
-    public void POST_multiple_headers(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.postMethodWithMultipleHeaders("foo", "bar", "baz", "body").get();
+    public Object POST_single_header(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.postMethodWithSingleHeader("foo", "body").get();
     }
 
     @Benchmark
-    public void POST_multiple_headers_multiple_params(SimpleBenchmarkState state) throws Exception {
-        state.screechTestInterface.postMethodWithMultipleHeadersAndMultipleParams("foo", "bar", "baz", "body").get();
+    public Object POST_multiple_headers(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.postMethodWithMultipleHeaders("foo", "bar", "baz", "body").get();
+    }
+
+    @Benchmark
+    public Object POST_multiple_headers_multiple_params(SimpleBenchmarkState state) throws Exception {
+        return state.screechTestInterface.postMethodWithMultipleHeadersAndMultipleParams("foo", "bar", "baz", "body").get();
     }
 
 }

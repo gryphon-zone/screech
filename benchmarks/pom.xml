@@ -29,7 +29,7 @@
     <artifactId>screech-benchmarks</artifactId>
 
     <properties>
-        <pedantic.testOnlyDeps/>
+        <benchmarkFile>${project.build.directory}/benchmarks/benchmark_results.json</benchmarkFile>
     </properties>
 
     <dependencyManagement>
@@ -89,33 +89,65 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>run-benchmarks</id>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                        <phase>test</phase>
-
-                        <configuration>
-                            <mainClass>zone.gryphon.screech.benchmark.BenchmarkLauncher</mainClass>
-                            <systemProperties>
-                                <systemProperty>
-                                    <key>java.class.path</key>
-                                    <value>${project.build.outputDirectory}${path.separator}${runtimeClasspath}</value>
-                                </systemProperty>
-                                <systemProperty>
-                                    <key>outputDir</key>
-                                    <value>${project.build.directory}</value>
-                                </systemProperty>
-                            </systemProperties>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <!-- benchmarks take several minutes to run, so only do so when the benchmark profile is active -->
+            <id>benchmark</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>run-benchmarks</id>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <phase>test</phase>
+
+                                <configuration>
+                                    <mainClass>zone.gryphon.screech.benchmark.BenchmarkLauncher</mainClass>
+                                    <systemProperties>
+                                        <systemProperty>
+                                            <key>java.class.path</key>
+                                            <value>${project.build.outputDirectory}${path.separator}${runtimeClasspath}</value>
+                                        </systemProperty>
+                                        <systemProperty>
+                                            <key>benchmarkFile</key>
+                                            <value>${benchmarkFile}</value>
+                                        </systemProperty>
+                                    </systemProperties>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-benchmarks</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>attach-artifact</goal>
+                                </goals>
+                                <configuration>
+                                    <artifacts>
+                                        <artifact>
+                                            <file>${benchmarkFile}</file>
+                                            <type>json</type>
+                                        </artifact>
+                                    </artifacts>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

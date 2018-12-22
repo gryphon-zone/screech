@@ -31,7 +31,7 @@ import java.util.concurrent.Executors;
 @State(Scope.Thread)
 public class SimpleBenchmarkState {
 
-    private final ExecutorService service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
+    public final ExecutorService service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public final ScreechTestInterface screechTestInterface;
 

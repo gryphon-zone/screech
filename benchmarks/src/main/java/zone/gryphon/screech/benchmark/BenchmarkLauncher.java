@@ -38,7 +38,9 @@ public class BenchmarkLauncher {
         }
 
         if (!initialOptions.getResult().hasValue()) {
-            File file = new File(System.getProperty("outputDir", "."), "benchmark_results.json").getAbsoluteFile();
+            File file = new File(System.getProperty("benchmarkFile")).getAbsoluteFile();
+            //noinspection ResultOfMethodCallIgnored
+            file.getParentFile().mkdirs();
             System.out.println("Writing results to " + file);
             builder.result(file.getAbsolutePath());
         }
