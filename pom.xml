@@ -16,7 +16,8 @@
   ~
   -->
 
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>zone.gryphon</groupId>
@@ -69,6 +70,7 @@
     <modules>
         <module>annotations</module>
         <module>asynchttpclient2</module>
+        <module>benchmarks</module>
         <module>bom</module>
         <module>build-bom</module>
         <module>core</module>
@@ -93,17 +95,61 @@
     </properties>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>3.1.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>3.0.0-M2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.0.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>2.5.3</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.0.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>1.5</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>3.0.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>1.6.0</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.1.1</version>
                 <executions>
                     <execution>
                         <id>analyze-dependencies</id>
                         <goals>
                             <goal>analyze-only</goal>
                         </goals>
+                        <phase>process-test-classes</phase>
                         <configuration>
                             <failOnWarning>true</failOnWarning>
                             <outputXML>true</outputXML>
@@ -111,6 +157,7 @@
                                 <dependency>ch.qos.logback:logback-classic:jar:*</dependency>
                                 <dependency>ch.qos.logback:logback-core:jar:*</dependency>
                                 <dependency>org.projectlombok:lombok:jar:*</dependency>
+                                <dependency>org.openjdk.jmh:jmh-generator-annprocess:jar:*</dependency>
                             </ignoredUnusedDeclaredDependencies>
                         </configuration>
                     </execution>
@@ -119,21 +166,22 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.0.0-M2</version>
                 <executions>
                     <execution>
                         <id>require-upper-bound-deps</id>
+                        <phase>validate</phase>
                         <goals>
                             <goal>enforce</goal>
                         </goals>
                         <configuration>
                             <rules>
-                                <requireUpperBoundDeps />
+                                <requireUpperBoundDeps/>
                             </rules>
                         </configuration>
                     </execution>
                     <execution>
                         <id>pedantic-pom</id>
+                        <phase>validate</phase>
                         <goals>
                             <goal>enforce</goal>
                         </goals>
@@ -141,7 +189,8 @@
                             <rules>
                                 <!-- see the following for documentation about configuration of the enforcer -->
                                 <!-- https://github.com/ferstl/pedantic-pom-enforcers/wiki/CompoundPedanticEnforcer -->
-                                <compound implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
+                                <compound
+                                        implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
 
                                     <!-- Enforcers -->
                                     <enforcers>
@@ -175,25 +224,25 @@
                                     <manageDependencyExclusions>true</manageDependencyExclusions>
 
                                     <!-- DEPENDENCY_SCOPE configuration -->
-                                    <compileDependencies />
+                                    <compileDependencies/>
                                     <providedDependencies>org.projectlombok:lombok</providedDependencies>
-                                    <runtimeDependencies />
-                                    <systemDependencies />
+                                    <runtimeDependencies/>
+                                    <systemDependencies/>
                                     <testDependencies>${pedantic.testOnlyDeps}</testDependencies>
-                                    <importDependencies />
+                                    <importDependencies/>
 
                                     <!-- DEPENDENCY_MANAGEMENT_LOCATION configuration -->
                                     <allowParentPomsForDependencyManagement>
                                         true
                                     </allowParentPomsForDependencyManagement>
-                                    <dependencyManagingPoms />
+                                    <dependencyManagingPoms/>
 
                                     <!-- PLUGIN_MANAGEMENT_ORDER configuration -->
                                     <pluginManagementOrderBy>groupId,artifactId</pluginManagementOrderBy>
                                     <pluginManagementGroupIdPriorities>
                                         ${project.groupId}
                                     </pluginManagementGroupIdPriorities>
-                                    <pluginManagementArtifactIdPriorities />
+                                    <pluginManagementArtifactIdPriorities/>
 
                                     <!-- PLUGIN_CONFIGURATION configuration -->
                                     <managePluginVersions>false</managePluginVersions>
@@ -202,7 +251,7 @@
 
                                     <!-- PLUGIN_MANAGEMENT_LOCATION configuration -->
                                     <allowParentPomsForPluginManagement>true</allowParentPomsForPluginManagement>
-                                    <pluginManagingPoms />
+                                    <pluginManagingPoms/>
 
                                 </compound>
                             </rules>
@@ -220,7 +269,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.0.1</version>
                 <executions>
                     <execution>
                         <id>attach-javadoc</id>
@@ -238,11 +286,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
-                <version>2.5.3</version>
                 <configuration>
                     <autoVersionSubmodules>true</autoVersionSubmodules>
                     <useReleaseProfile>false</useReleaseProfile>
-                    <releaseProfiles>release</releaseProfiles>
+                    <releaseProfiles>release,benchmark</releaseProfiles>
                     <goals>deploy</goals>
                 </configuration>
             </plugin>
@@ -257,7 +304,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.5</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -271,7 +317,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
-                        <version>3.0.1</version>
                         <executions>
                             <execution>
                                 <id>attach-sources</id>
