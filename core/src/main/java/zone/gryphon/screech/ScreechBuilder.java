@@ -111,7 +111,7 @@ public class ScreechBuilder {
 
         Executor responseExecutor = getOrDefaultResponseExecutor();
 
-        ReflectiveScreech reflectiveScreech = new ReflectiveScreech(requestEncoder, requestInterceptors, responseDecoder, errorDecoder, requestExecutor, responseExecutor, client, clazz, target);
+        ReflectiveScreech<T> reflectiveScreech = new ReflectiveScreech<>(requestEncoder, requestInterceptors, responseDecoder, errorDecoder, requestExecutor, responseExecutor, client, clazz, target);
 
         //noinspection unchecked
         return (T) Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, reflectiveScreech);

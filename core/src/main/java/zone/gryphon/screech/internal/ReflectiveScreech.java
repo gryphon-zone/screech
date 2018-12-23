@@ -69,7 +69,19 @@ public class ReflectiveScreech<T> implements InvocationHandler {
         this.proxyClass = clazz;
 
         for (Method method : clazz.getMethods()) {
-            map.put(method, AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, requestExecutor, responseExecutor));
+            AsyncInvocationHandler handler = AsyncInvocationHandler.builder()
+                    .method(method)
+                    .encoder(requestEncoder)
+                    .requestInterceptors(requestInterceptors)
+                    .responseDecoder(responseDecoder)
+                    .errorDecoder(errorDecoder)
+                    .client(client)
+                    .target(target)
+                    .requestExecutor(requestExecutor)
+                    .responseExecutor(responseExecutor)
+                    .build();
+
+            map.put(method, handler);
         }
 
         // equals method is always invoked with exactly one argument, hence args[0]

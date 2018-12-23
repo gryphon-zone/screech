@@ -18,6 +18,7 @@
 package zone.gryphon.screech.internal;
 
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
@@ -32,6 +33,9 @@ import zone.gryphon.screech.ResponseDecoder;
 import zone.gryphon.screech.ResponseDecoderFactory;
 import zone.gryphon.screech.Target;
 import zone.gryphon.screech.exception.ScreechException;
+import zone.gryphon.screech.internal.callback.ConditionallyProxyingCallabck;
+import zone.gryphon.screech.internal.callback.ThreadingCallback;
+import zone.gryphon.screech.internal.callback.TransformingCallback;
 import zone.gryphon.screech.model.HttpParam;
 import zone.gryphon.screech.model.Request;
 import zone.gryphon.screech.model.RequestBody;
@@ -57,12 +61,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -72,123 +74,10 @@ import java.util.stream.Collectors;
 @EqualsAndHashCode
 public class AsyncInvocationHandler implements InvocationHandler {
 
-    static class ThreadingCallback<T> implements Callback<T> {
-
-        private final Executor service;
-
-        private final Callback<T> proxy;
-
-        private final Thread invokingThread;
-
-        ThreadingCallback(Executor service, Callback<T> proxy) {
-            this.service = service;
-            this.proxy = proxy;
-            this.invokingThread = Thread.currentThread();
-        }
-
-        @Override
-        public void onSuccess(T result) {
-
-            if (Thread.currentThread().equals(invokingThread)) {
-                proxy.onSuccess(result);
-            } else {
-                service.execute(() -> proxy.onSuccess(result));
-            }
-        }
-
-        @Override
-        public void onFailure(Throwable e) {
-            if (Thread.currentThread().equals(invokingThread)) {
-                proxy.onFailure(e);
-            } else {
-                service.execute(() -> proxy.onFailure(e));
-            }
-        }
-    }
-
-
-    static abstract class TransformingCallback<T, R> implements Callback<T> {
-
-        private final Callback<R> proxy;
-
-        public TransformingCallback(Callback<R> proxy) {
-            this.proxy = Objects.requireNonNull(proxy, "proxy callback may not be null");
-        }
-
-        @Override
-        public void onSuccess(T result) {
-            proxy.onSuccess(convert(result));
-        }
-
-        @Override
-        public void onFailure(Throwable e) {
-            proxy.onFailure(e);
-        }
-
-        protected abstract R convert(T entity);
-    }
-
-    static class ConditionallyProxyingCallabck<T> implements Callback<T> {
-
-        // set to the name of the first method that was called
-        private final AtomicReference<String> terminalMethodName = new AtomicReference<>();
-
-        private final Callback<T> proxy;
-
-        private final boolean throwException;
-
-        public ConditionallyProxyingCallabck(Callback<T> proxy, boolean throwException) {
-            this.proxy = Objects.requireNonNull(proxy, "proxy callback may not be null");
-            this.throwException = throwException;
-        }
-
-        @Override
-        public void onSuccess(T result) {
-            if (terminalMethodName.compareAndSet(null, "onSuccess")) {
-                proxy.onSuccess(result);
-            } else {
-                invokedAfterMethodCalled("onSuccess", null);
-            }
-        }
-
-        @Override
-        public void onFailure(Throwable e) {
-            if (terminalMethodName.compareAndSet(null, "onFailure")) {
-                proxy.onFailure(e);
-            } else {
-                invokedAfterMethodCalled("onFailure", e);
-            }
-        }
-
-        private void invokedAfterMethodCalled(String method, Throwable e) {
-            if (throwException) {
-                String message = String.format("Cannot invoke %s(), %s() already invoked", method, terminalMethodName.get());
-                if (e != null) {
-                    throw new IllegalStateException(message, e);
-                } else {
-                    throw new IllegalStateException(message);
-                }
-            }
-        }
-    }
-
     private static final Set<Type> WRAPPER_TYPES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             CompletableFuture.class,
             Optional.class
     )));
-
-    public static AsyncInvocationHandler from(
-            Method method,
-            RequestEncoder requestEncoder,
-            List<RequestInterceptor> requestInterceptors,
-            ResponseDecoderFactory responseDecoder,
-            ResponseDecoderFactory errorDecoder,
-            Client client,
-            Target target,
-            Executor requestExecutor,
-            Executor responseExecutor) {
-        return new AsyncInvocationHandler(method, requestEncoder, requestInterceptors, responseDecoder, errorDecoder, client, target, requestExecutor, responseExecutor);
-    }
 
     @Getter(AccessLevel.PROTECTED)
     private final Type effectiveReturnType;
@@ -235,6 +124,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private final Executor responseExecutor;
 
+    @Builder
     private AsyncInvocationHandler(
             @NonNull Method method,
             @NonNull RequestEncoder encoder,

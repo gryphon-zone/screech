@@ -60,7 +60,17 @@ public class AsyncInvocationHandlerParsingTest {
     private final Executor executor = Executors.newCachedThreadPool();
 
     private AsyncInvocationHandler create(Method method) {
-        return AsyncInvocationHandler.from(method, requestEncoder, requestInterceptors, dcoderFactory, errorDecoderFactory, client, target, executor, executor);
+        return AsyncInvocationHandler.builder()
+                .method(method)
+                .encoder(requestEncoder)
+                .requestInterceptors(requestInterceptors)
+                .responseDecoder(dcoderFactory)
+                .errorDecoder(errorDecoderFactory)
+                .client(client)
+                .target(target)
+                .responseExecutor(executor)
+                .requestExecutor(executor)
+                .build();
     }
 
     public interface NoAnnotation {
