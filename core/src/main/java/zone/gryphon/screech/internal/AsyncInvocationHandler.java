@@ -42,8 +42,8 @@ import zone.gryphon.screech.model.RequestBody;
 import zone.gryphon.screech.model.Response;
 import zone.gryphon.screech.model.ResponseHeaders;
 import zone.gryphon.screech.model.SerializedRequest;
+import zone.gryphon.screech.util.MultiStringInterpolator;
 import zone.gryphon.screech.util.SimpleStringInterpolator;
-import zone.gryphon.screech.util.StringInterpolator;
 import zone.gryphon.screech.util.Util;
 
 import java.lang.annotation.Annotation;
@@ -98,7 +98,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
     private final Function<Object[], Object> bodyFunction;
 
-    private final Map<String, StringInterpolator> interpolatorCache;
+    private final MultiStringInterpolator interpolator;
 
     private final String methodKey;
 
@@ -181,26 +181,25 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         this.bodyFunction = setupBodyFunction(method);
 
-        this.interpolatorCache = buildInterpolatorCache(this.path, this.queryParams, this.headerParams);
-
+        this.interpolator = buildInterpolatorCache();
     }
 
-    private Map<String, StringInterpolator> buildInterpolatorCache(String path, List<HttpParam> queryParams, List<HttpParam> headerParams) {
-        Map<String, StringInterpolator> out = new HashMap<>();
+    private MultiStringInterpolator buildInterpolatorCache() {
+        Set<String> components = new HashSet<>();
 
-        out.put(path, SimpleStringInterpolator.of(path));
+        components.add(this.path);
 
-        queryParams.forEach(param -> {
-            out.put(param.getKey(), SimpleStringInterpolator.of(param.getKey()));
-            out.put(param.getValue(), SimpleStringInterpolator.of(param.getValue()));
+        this.queryParams.forEach(param -> {
+            components.add(param.getKey());
+            components.add(param.getValue());
         });
 
-        headerParams.forEach(param -> {
-            out.put(param.getKey(), SimpleStringInterpolator.of(param.getKey()));
-            out.put(param.getValue(), SimpleStringInterpolator.of(param.getValue()));
+        this.headerParams.forEach(param -> {
+            components.add(param.getKey());
+            components.add(param.getValue());
         });
 
-        return out;
+        return new MultiStringInterpolator(components);
     }
 
     private boolean isOptionalReturnType(Type genericReturnType) {
@@ -500,7 +499,7 @@ public class AsyncInvocationHandler implements InvocationHandler {
     }
 
     private URI interpolateUri(String uri, Map<String, String> templateParameters) {
-        return URI.create(getInterpolator(uri).interpolate(templateParameters));
+        return URI.create(interpolator.interpolate(uri, templateParameters));
     }
 
     private List<HttpParam> interpolateHttpParams(List<HttpParam> params, Map<String, String> templateParams) {
@@ -513,17 +512,13 @@ public class AsyncInvocationHandler implements InvocationHandler {
 
         if (SimpleStringInterpolator.requiresInterpolation(param.getKey()) || SimpleStringInterpolator.requiresInterpolation(param.getValue())) {
             return HttpParam.builder()
-                    .key(getInterpolator(param.getKey()).interpolate(templateParams))
-                    .value(getInterpolator(param.getValue()).interpolate(templateParams))
+                    .key(interpolator.interpolate(param.getKey(), templateParams))
+                    .value(interpolator.interpolate(param.getValue(), templateParams))
                     .build();
         }
 
         // if neither the key nor the value requires interpolation, we can return it as-is since it's immutable
         return param;
-    }
-
-    private StringInterpolator getInterpolator(String input) {
-        return interpolatorCache.containsKey(input) ? interpolatorCache.get(input) : SimpleStringInterpolator.of(input);
     }
 
     private String parseContentType(List<HttpParam> headers) {
