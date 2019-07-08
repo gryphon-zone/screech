@@ -346,7 +346,8 @@ public abstract class BaseClientTest {
             failBecauseExceptionWasNotThrown(ExecutionException.class);
         } catch (ExecutionException e) {
             assertThat(e).hasRootCauseInstanceOf(ConnectException.class);
-            log.debug("Caught expected exception", e.getCause());
+            Throwable cause = e.getCause();
+            log.debug("Caught expected exception:{}", ExpectedExceptionUtility.simpleMessageFor(cause));
         }
     }
 

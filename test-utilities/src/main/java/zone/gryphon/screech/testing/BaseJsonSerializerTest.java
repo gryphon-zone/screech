@@ -138,7 +138,8 @@ public abstract class BaseJsonSerializerTest {
         Callback<ByteBuffer> callback = mock(Callback.class);
 
         doAnswer(invocationOnMock -> {
-            log.debug("Caught expected exception", invocationOnMock.getArguments()[0]);
+            Throwable t = invocationOnMock.getArgumentAt(0, Throwable.class);
+            log.debug("Caught expected exception: {}", ExpectedExceptionUtility.simpleMessageFor(t));
             return null;
         }).when(callback).onFailure(any());
 
