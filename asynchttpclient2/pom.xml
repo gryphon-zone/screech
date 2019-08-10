@@ -37,15 +37,18 @@
     </dependencyManagement>
 
     <dependencies>
+
+        <!-- compile dependencies -->
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.asynchttpclient</groupId>
             <artifactId>async-http-client</artifactId>
         </dependency>
-        <!-- compile dependencies -->
+
         <dependency>
             <groupId>zone.gryphon</groupId>
             <artifactId>screech-core</artifactId>
@@ -58,22 +61,24 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- test dependencies -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-core</artifactId>
             <scope>test</scope>
         </dependency>
 
-        <!-- test dependencies -->
         <dependency>
             <groupId>zone.gryphon</groupId>
             <artifactId>screech-test-utilities</artifactId>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 </project>

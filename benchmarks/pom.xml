@@ -41,19 +41,23 @@
     </dependencyManagement>
 
     <dependencies>
+
+        <!-- compile dependencies -->
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
         </dependency>
-        <!-- compile dependencies -->
+
         <dependency>
             <groupId>zone.gryphon</groupId>
             <artifactId>screech-annotations</artifactId>
         </dependency>
+
         <dependency>
             <groupId>zone.gryphon</groupId>
             <artifactId>screech-core</artifactId>
@@ -65,7 +69,9 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
+
     </dependencies>
+
     <build>
         <plugins>
             <plugin>
