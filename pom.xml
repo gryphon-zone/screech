@@ -19,7 +19,7 @@
     <parent>
         <groupId>zone.gryphon</groupId>
         <artifactId>base-pom</artifactId>
-        <version>0.11.35-a225641</version>
+        <version>0.11.37-558726f</version>
     </parent>
 
     <artifactId>screech</artifactId>
