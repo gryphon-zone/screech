@@ -15,5 +15,5 @@
 @Library('gryphon-zone/pipeline-shared-library@master') _
 
 mavenLibraryPipeline('gryphon-zone') {
-    setAutomaticallyRelease(false)
+    automaticallyRelease false
 }

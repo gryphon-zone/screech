@@ -47,7 +47,7 @@
             <dependency>
                 <groupId>zone.gryphon</groupId>
                 <artifactId>base-bom</artifactId>
-                <version>${base-pom.version}</version>
+                <version>${core-poms.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

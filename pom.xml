@@ -19,8 +19,7 @@
     <parent>
         <groupId>zone.gryphon</groupId>
         <artifactId>base-pom</artifactId>
-        <!-- when updating parent, also update version in properties section -->
-        <version>0.11.9-84ff5b5</version>
+        <version>0.11.35-a225641</version>
     </parent>
 
     <artifactId>screech</artifactId>
@@ -40,8 +39,8 @@
 
     <developers>
         <developer>
-            <id>galen</id>
-            <name>Galen</name>
+            <id>tyrol</id>
+            <name>Tyrol</name>
             <email>tyrol@gryphon.zone</email>
             <organizationUrl>https://github.com/gryphon-zone/</organizationUrl>
             <roles>
@@ -74,7 +73,6 @@
     </scm>
 
     <properties>
-        <base-pom.version>0.11.9-84ff5b5</base-pom.version>
         <pedantic.testScopedDependencies>${pedantic.defaultTestScopedDependencies},ch.qos.logback:logback-classic,ch.qos.logback:logback-core</pedantic.testScopedDependencies>
     </properties>
 
