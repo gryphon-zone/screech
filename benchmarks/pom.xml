@@ -79,10 +79,10 @@
                 <executions>
                     <execution>
                         <id>build-classpath</id>
-                        <phase>initialize</phase>
                         <goals>
                             <goal>build-classpath</goal>
                         </goals>
+                        <phase>initialize</phase>
                         <configuration>
                             <includeScope>runtime</includeScope>
                             <outputProperty>runtimeClasspath</outputProperty>
@@ -120,10 +120,10 @@
                         <executions>
                             <execution>
                                 <id>attach-benchmarks</id>
-                                <phase>package</phase>
                                 <goals>
                                     <goal>attach-artifact</goal>
                                 </goals>
+                                <phase>package</phase>
                                 <configuration>
                                     <artifacts>
                                         <artifact>
@@ -141,10 +141,10 @@
                         <executions>
                             <execution>
                                 <id>run-benchmarks</id>
-                                <phase>test</phase>
                                 <goals>
                                     <goal>java</goal>
                                 </goals>
+                                <phase>test</phase>
 
                                 <configuration>
                                     <mainClass>zone.gryphon.screech.benchmark.BenchmarkLauncher</mainClass>
