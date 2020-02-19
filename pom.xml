@@ -19,7 +19,7 @@
     <parent>
         <groupId>zone.gryphon</groupId>
         <artifactId>base-pom</artifactId>
-        <version>0.11.41-5e4a1d7</version>
+        <version>0.20.93-c220945</version>
     </parent>
 
     <artifactId>screech</artifactId>
@@ -73,7 +73,7 @@
     </scm>
 
     <properties>
-        <pedantic.testScopedDependencies>${pedantic.defaultTestScopedDependencies},ch.qos.logback:logback-classic,ch.qos.logback:logback-core</pedantic.testScopedDependencies>
+        <pedantic.testScopedDependencies>${pedantic.dependencies.test.default},ch.qos.logback:logback-classic,ch.qos.logback:logback-core</pedantic.testScopedDependencies>
     </properties>
 
     <build>

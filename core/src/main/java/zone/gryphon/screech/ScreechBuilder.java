@@ -40,6 +40,7 @@ public class ScreechBuilder {
 
     private final int numCores = Runtime.getRuntime().availableProcessors();
 
+    @SuppressWarnings("UnnecessaryLambda")
     private final Supplier<Executor> executorSupplier = () -> new ThreadPoolExecutor(numCores, numCores,
             Long.MAX_VALUE, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), new ScreechThreadFactory("ScreechClient"));
 
